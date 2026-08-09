@@ -1,0 +1,197 @@
+# Sudoku Solving/Learning Website
+
+## Project overview
+
+A website with two areas: a **solver** (paste/upload/type a sudoku, get it solved
+or hinted step-by-step) and a **Learn** section (tiered lessons teaching sudoku
+solving techniques, inspired by — but not copying — the Oakever iPhone app's
+dim/highlight/stepper lesson style).
+
+## Current phase: Phase 1 — Solving engine only
+
+We are **not** building the website yet. The only active work right now is the
+solving engine in `packages/engine`. Do not scaffold `apps/web` or `apps/api`
+beyond empty placeholders unless explicitly asked.
+
+Phase 1 goals:
+
+- Implement sudoku solving techniques as individual, testable functions
+- Port/adapt logic from `GillesArcas/sudosol` (Python, MIT licensed) as a
+  reference — keep the MIT attribution notice in this repo once porting begins
+- Go well beyond the original 29-technique list (see below) — aim for the
+  fuller technique set sudosol and similar solvers implement, since the engine
+  needs to reliably solve _any_ valid grid a user submits, not just ones using
+  the originally-planned teaching set
+- Tests from the start, alongside each technique as it's implemented —
+  validate against known datasets (e.g. KyleGough/sudoku's puzzle sets) where
+  possible, not just hand-written cases
+- Implementation order: whatever groups/ports most easily (e.g. the fish
+  family — X-Wing/Swordfish/Jellyfish — share structure and are worth doing
+  together), not strict difficulty order
+
+## Tech stack (full project, for context — most of this is Phase 2)
+
+- Frontend: TanStack Start
+- Backend: Express (Node.js)
+- Database: Postgres, via Drizzle ORM
+- Styling: Tailwind + shadcn/ui, dark mode support required
+- Keyboard shortcuts: TanStack Hotkeys (currently alpha)
+- Deployment: Render, paid tier
+- OCR (photo-upload grid detection): Tesseract, server-side, Express handles
+  image preprocessing (grid detection/cropping) before OCR
+- **Solving engine runs entirely client-side** in the browser (TypeScript) —
+  no server round-trip for solving. This is why `packages/engine` must stay
+  framework-free and portable.
+
+## Core engine design decisions
+
+- **The engine is the source of truth for candidates, never the user's input.**
+  On load, always compute candidates from scratch from placed digits. Never
+  trust a user's manual notation marks as correct.
+- **Solving loop**: recompute state → walk techniques in confirmed difficulty
+  order → apply the _first_ one that qualifies → restart from the top of the
+  list (not continue from where you left off) → repeat until solved or stuck.
+  Restarting from the top each time matters: applying any technique can
+  unlock a trivially simple move elsewhere that should be caught first.
+- **Hint and "solve all" are the same mechanism at different speeds.** Each
+  hint click applies one technique and appends it to a step list; solve-all
+  just fast-forwards through all remaining steps. No separate code paths.
+- **Notation error handling**: if a user's submitted notations are wrong, do
+  NOT attempt partial-credit reconciliation (this was explored and abandoned
+  as impractical — see chat history if curious why). Simply reset to blank
+  notation state and notify the user.
+- **"Check for mistakes" is intentionally lightweight** — NOT full technique
+  verification. Scope is exactly three checks:
+  1. Digit conflicts (duplicate placed digit in a row/column/box)
+  2. Impossible candidates present (a candidate that contradicts a placed digit)
+  3. A digit missing entirely from a unit — neither placed nor present as a
+     candidate anywhere in that row/column/box (definite contradiction)
+     Do not extend this to catching wrongly-eliminated-but-still-valid
+     candidates — that needs full reachability analysis and belongs in
+     hint/solve, not this quick-check button.
+- Invalid grids (duplicate digits) → reject immediately, no solve attempt.
+- Valid grids with multiple solutions → flag and notify (some techniques,
+  like BUG+1, assume a unique solution and would misfire otherwise).
+
+## Original 29-technique list (Phase 1 starting point, not the ceiling)
+
+Beginner: Last Free Cell, Last Possible Number, Cross-Hatching (Box/Row/Column),
+Naked Single, Hidden Single
+
+Intermediate: Locked Candidates (Pointing/Claiming), Naked Pair/Triple/Quadruple,
+Hidden Pair/Triple, X-Wing, Skyscraper
+
+Advanced: 2-String Kite, Turbot Fish, Swordfish, XY-Wing, W-Wing, XYZ-Wing,
+Finned X-Wing, Finned Swordfish, Uniqueness (Unique Rectangle), BUG+1
+
+Master: Jellyfish, Finned Jellyfish, XY-Chain
+
+(This tier list was based on real solving-experience findability, not just
+structural complexity — e.g. Jellyfish is much harder to spot than X-Wing
+despite being the same pattern at a different scale. It will likely be
+revised once the fuller technique set from Phase 1 is known — that's expected
+and fine.)
+
+## Definitions worth preserving precisely
+
+- **Last Free Cell**: a unit has only one empty cell left → trivially fill it.
+- **Last Possible Number**: a unit isn't fully filled, but candidate marks
+  show a digit can only go in one remaining cell (different from Last Free
+  Cell — requires partial candidate awareness, not full completion).
+- **Cross-Hatching**: scanline elimination technique; can be done with or
+  without candidate marks present — not exclusively a "no candidates" method.
+- **BUG+1**: grid reaches a state where every cell has exactly 2 candidates
+  except one cell with 3. The puzzle's uniqueness constraint means the two
+  "wrong" candidates would create multiple solutions, so the third is correct.
+- **W-Wing**: two non-seeing cells share the same two candidates (X,Y),
+  connected via a strong link elsewhere in the grid on one candidate.
+
+## Licensing note
+
+`GillesArcas/sudosol` is MIT licensed — free to port/adapt with attribution
+kept somewhere in this repo (LICENSE file or README credit).
+
+# context-mode — MANDATORY routing rules
+
+You have context-mode MCP tools available. These rules are NOT optional — they protect your context window from flooding. A single unrouted command can dump 56 KB into context and waste the entire session.
+
+## BLOCKED commands — do NOT attempt these
+
+### curl / wget — BLOCKED
+
+Any Bash command containing `curl` or `wget` is intercepted and replaced with an error message. Do NOT retry.
+Instead use:
+
+- `ctx_fetch_and_index(url, source)` to fetch and index web pages
+- `ctx_execute(language: "javascript", code: "const r = await fetch(...)")` to run HTTP calls in sandbox
+
+### Inline HTTP — BLOCKED
+
+Any Bash command containing `fetch('http`, `requests.get(`, `requests.post(`, `http.get(`, or `http.request(` is intercepted and replaced with an error message. Do NOT retry with Bash.
+Instead use:
+
+- `ctx_execute(language, code)` to run HTTP calls in sandbox — only stdout enters context
+
+### WebFetch — BLOCKED
+
+WebFetch calls are denied entirely. The URL is extracted and you are told to use `ctx_fetch_and_index` instead.
+Instead use:
+
+- `ctx_fetch_and_index(url, source)` then `ctx_search(queries)` to query the indexed content
+
+## REDIRECTED tools — use sandbox equivalents
+
+### Bash (>20 lines output)
+
+Bash is ONLY for: `git`, `mkdir`, `rm`, `mv`, `cd`, `ls`, `npm install`, `pip install`, and other short-output commands.
+For everything else, use:
+
+- `ctx_batch_execute(commands, queries)` — run multiple commands + search in ONE call
+- `ctx_execute(language: "shell", code: "...")` — run in sandbox, only stdout enters context
+
+### Read (for analysis)
+
+If you are reading a file to **Edit** it → Read is correct (Edit needs content in context).
+If you are reading to **analyze, explore, or summarize** → use `ctx_execute_file(path, language, code)` instead. Only your printed summary enters context. The raw file content stays in the sandbox.
+
+### Grep (large results)
+
+Grep results can flood context. Use `ctx_execute(language: "shell", code: "grep ...")` to run searches in sandbox. Only your printed summary enters context.
+
+## Tool selection hierarchy
+
+1. **GATHER**: `ctx_batch_execute(commands, queries)` — Primary tool. Runs all commands, auto-indexes output, returns search results. ONE call replaces 30+ individual calls.
+2. **FOLLOW-UP**: `ctx_search(queries: ["q1", "q2", ...])` — Query indexed content. Pass ALL questions as array in ONE call.
+3. **PROCESSING**: `ctx_execute(language, code)` | `ctx_execute_file(path, language, code)` — Sandbox execution. Only stdout enters context.
+4. **WEB**: `ctx_fetch_and_index(url, source)` then `ctx_search(queries)` — Fetch, chunk, index, query. Raw HTML never enters context.
+5. **INDEX**: `ctx_index(content, source)` — Store content in FTS5 knowledge base for later search.
+
+## Subagent routing
+
+When spawning subagents (Agent/Task tool), the routing block is automatically injected into their prompt. Bash-type subagents are upgraded to general-purpose so they have access to MCP tools. You do NOT need to manually instruct subagents about context-mode.
+
+## Output constraints
+
+- Keep responses under 500 words.
+- Write artifacts (code, configs, PRDs) to FILES — never return them as inline text. Return only: file path + 1-line description.
+- When indexing content, use descriptive source labels so others can `ctx_search(source: "label")` later.
+
+## ctx commands
+
+| Command       | Action                                                                                |
+| ------------- | ------------------------------------------------------------------------------------- |
+| `ctx stats`   | Call the `ctx_stats` MCP tool and display the full output verbatim                    |
+| `ctx doctor`  | Call the `ctx_doctor` MCP tool, run the returned shell command, display as checklist  |
+| `ctx upgrade` | Call the `ctx_upgrade` MCP tool, run the returned shell command, display as checklist |
+
+## Git workflow
+
+- Commit locally after completing each meaningful unit of work (e.g. a
+  technique implementation + its passing tests), not just at session end.
+- Use conventional commit prefixes: feat, fix, test, refactor, chore, docs.
+- Write commit messages describing _what_ changed and _why_, not just
+  restating the diff.
+- Do NOT push to the remote automatically — commit locally, then ask me
+  before pushing.
+- Never commit directly to main if we're using branches — check current
+  branch convention with me if unclear.

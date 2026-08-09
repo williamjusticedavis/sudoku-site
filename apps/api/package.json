@@ -1,0 +1,6 @@
+{
+  "name": "@sudoku/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Phase 2 placeholder — Express backend (OCR/image preprocessing). Not built yet."
+}
