@@ -1,0 +1,26 @@
+{
+  "name": "@sudoku/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-free sudoku solving engine (Phase 1). Runs client-side.",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "solve": "tsx src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "vitest": "^2.1.8"
+  }
+}
