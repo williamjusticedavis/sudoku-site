@@ -1,0 +1,8 @@
+# TanStack Start / Nitro build + generated output
+.output
+.nitro
+.tanstack
+.vite
+
+# Generated route tree (created on first dev/build run)
+src/routeTree.gen.ts
