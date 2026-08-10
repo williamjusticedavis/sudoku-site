@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sudoku}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sudoku}
+      POSTGRES_DB: ${POSTGRES_DB:-sudoku}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-sudoku} -d ${POSTGRES_DB:-sudoku}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Inside the compose network the db is reachable at host `db`.
+      # This overrides any DATABASE_URL from .env (which points at localhost
+      # for host-run tools like drizzle-kit).
+      DATABASE_URL: postgres://${POSTGRES_USER:-sudoku}:${POSTGRES_PASSWORD:-sudoku}@db:5432/${POSTGRES_DB:-sudoku}
+      PORT: '4000'
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: 'true' # macOS Docker file-watch reliability
+    ports:
+      - '${API_PORT:-4000}:4000'
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./:/app # bind: host source -> container (hot reload)
+      - /app/node_modules # anon: keep image-installed root modules
+      - /app/apps/api/node_modules # anon: keep api modules + workspace symlinks
+      - /app/packages/db/node_modules
+      - /app/packages/engine/node_modules
+    command: pnpm --filter @sudoku/api dev
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: http://localhost:4000 # browser -> api (host-mapped port)
+      API_INTERNAL_URL: http://api:4000 # SSR -> api (compose network)
+      CHOKIDAR_USEPOLLING: 'true'
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+    depends_on:
+      - api
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/packages/engine/node_modules
+    command: pnpm --filter @sudoku/web dev
+
+volumes:
+  pgdata:

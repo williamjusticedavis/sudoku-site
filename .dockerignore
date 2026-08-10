@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+.git
+dist
+**/dist
+.output
+**/.output
+coverage
+**/coverage
+node-compile-cache
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
