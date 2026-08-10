@@ -43,6 +43,46 @@ Phase 1 goals:
   no server round-trip for solving. This is why `packages/engine` must stay
   framework-free and portable.
 
+  ## Data model (Phase 2 — Postgres via Drizzle)
+
+Exactly 5 tables. Do not add more without checking in first — in particular,
+do NOT persist solves (see below).
+
+**users**
+
+- id, username (unique), password_hash, created_at
+
+**tactics** (static reference data — seeded once, not user-generated)
+
+- id, slug (e.g. `xy-wing`), name, tier (beginner/intermediate/advanced/master),
+  order_in_tier, description
+
+**tactic_puzzles** (curated example puzzles per tactic, at least 3 each)
+
+- id, tactic_id (FK), grid_state, solution_state, step_data (ordered hint
+  steps: highlighted cells/units, explanation text per step),
+  is_teaching_example (bool — first one per tactic vs. practice ones)
+
+**user_tactic_progress**
+
+- user_id (FK), tactic_id (FK), completed (bool), completed_at — drives the
+  per-level progress bar in the Learn section
+
+**user_favorite_tactics**
+
+- user_id (FK), tactic_id (FK) — favoriting a tactic/lesson (e.g. "W-Wing"),
+  NOT a puzzle. There is no puzzle-favoriting feature.
+
+### Explicitly excluded — do not build these
+
+- **No solve/solve-step persistence of any kind.** The solver page is fully
+  stateless and ephemeral for every user, logged in or not. Closing the tab
+  loses the puzzle; re-entering the grid from scratch is required to resume.
+  This was a deliberate, explicit decision — don't add a `solves` or
+  `solve_steps` table even if it seems like an obvious/easy addition.
+- **No `saved_puzzles` table.** Favorites are tactic-scoped only (see
+  `user_favorite_tactics` above), not puzzle-scoped.
+
 ## Core engine design decisions
 
 - **The engine is the source of truth for candidates, never the user's input.**
@@ -195,3 +235,26 @@ When spawning subagents (Agent/Task tool), the routing block is automatically in
   before pushing.
 - Never commit directly to main if we're using branches — check current
   branch convention with me if unclear.
+- **Pre-commit enforcement (husky + lint-staged).** A `.husky/pre-commit` hook
+  runs `pnpm lint-staged` on every commit. Config in `lint-staged.config.js`:
+  on staged files it runs `prettier --write` (formatting), `eslint --fix`
+  (lint/autofix on JS/TS), and `tsc --noEmit` for each touched workspace package
+  (via that package's `typecheck` script). Any failure aborts the commit. Do not
+  bypass with `--no-verify` unless explicitly asked.
+- **Editor formatting.** `.vscode/settings.json` sets Prettier as the default
+  formatter with format-on-save and `prettier.requireConfig: true`, so
+  VS Code formatting matches the pre-commit hook.
+
+Phase 1 is complete and committed (locally, not pushed). The solving engine in packages/engine solves any valid grid via real, explainable technique logic (29+ techniques plus Simple Coloring, ALS-XZ, and a depth-1 forcing-chain backstop), verified against an independent brute-force oracle across 1137+ puzzles, and personally hand-tested via the CLI by the project owner — including notation input/validation (parseGridWithCandidates, checkForMistakes, reconcileNotation). Do not reopen Phase 1 work unless explicitly asked. One known, deliberately-accepted limitation: technique priority order in solver.ts's TECHNIQUES list reflects implementation convenience (build order), not the finalized difficulty tiers below — this means the solver can occasionally apply a structurally-harder technique (e.g. XY-Wing) before an easier one (e.g. BUG+1) when both are valid on the same grid state. This is accepted as-is for now; do not "fix" it unprompted.
+
+We are now in Phase 2: building the actual website around the engine.
+
+Infra decisions for Phase 2 (decide first, before pages/features)
+Docker, full docker-compose for local dev: web (TanStack Start), api (Express), db (Postgres) all running together via one docker-compose up. Get hot-reload working correctly via proper volume mounts (bind-mount source, keep node_modules in a container-only volume) — this is a known trip-up, get it right from the start rather than patching it in later.
+Production deployment on Render: Docker for BOTH web and api, not native buildpacks. Reason: Render's native runtime cannot install OS-level packages (no apt/sudo/root), and the api service needs Tesseract, which requires exactly that. Since api must use Docker anyway, web uses Docker too for one consistent deployment strategy across the app rather than mixing native + Docker.
+Render deploys still trigger from the connected GitHub repo the same way native deploys would — Docker vs. native only changes how Render builds/runs the code after it arrives, not the git-based trigger flow.
+Env vars / secrets handling: delegated to your judgment. Reasonable defaults expected (e.g. .env + .env.example locally, docker-compose env passthrough, Render's environment variable dashboard for production secrets). Flag anything unusual / non-standard before implementing it, but routine choices don't need sign-off.
+Postgres hosting in production: delegated to your judgment — Render's managed Postgres vs. self-run Postgres container on Render. Pick whichever is the more standard/maintainable choice and explain the reasoning briefly when you do.
+Once infra is scaffolded
+
+Move into building actual pages/features per the existing plan already in this file: solver page, Learn section, auth, etc. The Learn curriculum (tiers/tactics) is still open for revision now that Phase 1 surfaced the real technique landscape (well beyond the original 29) — don't assume the original 29-tactic tier list is final without checking in first.

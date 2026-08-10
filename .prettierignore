@@ -2,3 +2,11 @@ node_modules/
 dist/
 coverage/
 pnpm-lock.yaml
+
+# Generated / build output — leave untouched by the formatter
+**/migrations/**
+**/routeTree.gen.ts
+**/.output/**
+**/.tanstack/**
+**/.nitro/**
+.husky/_/**
