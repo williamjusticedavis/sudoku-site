@@ -2,5 +2,20 @@
   "name": "@sudoku/api",
   "version": "0.0.0",
   "private": true,
-  "description": "Phase 2 placeholder — Express backend (OCR/image preprocessing). Not built yet."
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sudoku/db": "workspace:*",
+    "express": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.12.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.7.2"
+  }
 }
