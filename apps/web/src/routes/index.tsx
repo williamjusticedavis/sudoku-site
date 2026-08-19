@@ -1,10 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BOXES, COLS, PEERS, ROWS, cellName, type Mistake } from '@sudoku/engine';
 import { useSolver, type SolveProblem } from '../features/solver/useSolver.js';
 import { buildHighlightMap } from '../features/solver/highlights.js';
 import { SudokuGrid, type Interaction } from '../features/solver/SudokuGrid.js';
 import { Modal } from '../features/solver/Modal.js';
+import { PhotoUpload } from '../features/ocr/PhotoUpload.js';
 
 export const Route = createFileRoute('/')({ component: SolverPage });
 
@@ -31,6 +32,7 @@ const btn =
 const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
 const btnGhost = `${btn} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`;
 const btnActive = `${btn} border border-blue-500 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-200`;
+const btnAccent = `${btn} border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40`;
 const groupLabel =
   'mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400';
 
@@ -86,6 +88,21 @@ function SolverPage() {
       window.removeEventListener('keyup', onKey);
     };
   }, []);
+
+  // Cmd/Ctrl+Z to undo, Cmd/Ctrl+Shift+Z to redo — skipped while typing in a
+  // text field (e.g. the Paste textarea).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select')) return;
+      e.preventDefault();
+      if (e.shiftKey) s.redo();
+      else s.undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [s.undo, s.redo]);
 
   // Click on empty page area (not the grid, not a control) deselects.
   useEffect(() => {
@@ -191,15 +208,15 @@ function SolverPage() {
 
       <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:flex-row">
         {/* Toolbar: grouped actions, left of the grid on large screens */}
-        <aside className="flex flex-col gap-4 lg:w-44 lg:shrink-0">
+        <aside className="flex flex-col gap-4 lg:w-52 lg:shrink-0">
           <div>
             <h3 className={groupLabel}>Solve</h3>
-            <div className="flex flex-wrap gap-2 lg:flex-col">
+            <div className="flex flex-wrap gap-2 lg:grid lg:grid-cols-2">
               <button
                 type="button"
                 className={`${btnPrimary} lg:w-full`}
                 onClick={s.solve}
-                disabled={s.clueCount === 0}
+                disabled={s.clueCount === 0 || s.solving}
               >
                 Solve
               </button>
@@ -207,7 +224,7 @@ function SolverPage() {
                 type="button"
                 className={`${btnGhost} lg:w-full`}
                 onClick={s.hint}
-                disabled={s.clueCount === 0}
+                disabled={s.clueCount === 0 || s.solving}
               >
                 Hint
               </button>
@@ -216,12 +233,13 @@ function SolverPage() {
 
           <div>
             <h3 className={groupLabel}>Marks</h3>
-            <div className="flex flex-wrap gap-2 lg:flex-col">
+            <div className="flex flex-wrap gap-2 lg:grid lg:grid-cols-2">
               <button
                 type="button"
                 aria-pressed={notesMode || shiftHeld}
                 className={`${notesMode || shiftHeld ? btnActive : btnGhost} lg:w-full`}
                 onClick={() => setNotesMode((n) => !n)}
+                disabled={s.solving}
                 title="Pencil-mark mode — type digits to add/remove notes (or hold Shift)"
               >
                 Notes{notesMode || shiftHeld ? ' ✓' : ''}
@@ -230,16 +248,16 @@ function SolverPage() {
                 type="button"
                 className={`${btnGhost} lg:w-full`}
                 onClick={s.autoNotes}
-                disabled={s.clueCount === 0}
+                disabled={s.clueCount === 0 || s.solving}
                 title="Fill every empty cell with its possible notes"
               >
                 Auto notes
               </button>
               <button
                 type="button"
-                className={`${btnGhost} lg:w-full`}
+                className={`${btnGhost} lg:w-full lg:col-span-2`}
                 onClick={() => setConfirmClearNotes(true)}
-                disabled={!hasNotes}
+                disabled={!hasNotes || s.solving}
                 title="Erase every pencil-marked note on the grid"
               >
                 Clear notes
@@ -249,29 +267,45 @@ function SolverPage() {
 
           <div>
             <h3 className={groupLabel}>Grid</h3>
-            <div className="flex flex-wrap gap-2 lg:flex-col">
-              <button type="button" className={`${btnGhost} lg:w-full`} onClick={s.check}>
+            <div className="flex flex-wrap gap-2 lg:grid lg:grid-cols-2">
+              <button
+                type="button"
+                className={`${btnGhost} lg:w-full`}
+                onClick={s.check}
+                disabled={s.solving}
+              >
                 Check for mistakes
               </button>
               <button
                 type="button"
                 className={`${btnGhost} lg:w-full`}
                 onClick={() => setPasteOpen((o) => !o)}
+                disabled={s.solving}
               >
                 Paste
               </button>
+              <PhotoUpload
+                className={`${btnAccent} lg:w-full`}
+                onGrid={(grid) => {
+                  s.load(grid);
+                  s.check();
+                }}
+                onError={s.setNotice}
+                disabled={s.solving}
+              />
               <button
                 type="button"
                 className={`${btnGhost} lg:w-full`}
                 onClick={() => s.load(EXAMPLE)}
+                disabled={s.solving}
               >
                 Load example
               </button>
               <button
                 type="button"
-                className={`${btnGhost} lg:w-full`}
+                className={`${btnGhost} lg:w-full lg:col-span-2`}
                 onClick={() => setConfirmClear(true)}
-                disabled={s.clueCount === 0}
+                disabled={s.clueCount === 0 || s.solving}
               >
                 Clear
               </button>
@@ -281,25 +315,57 @@ function SolverPage() {
 
         {/* Left: grid + status */}
         <section className="flex flex-col items-start gap-4">
-          <SudokuGrid
-            placed={s.display.placed}
-            notes={s.notes}
-            userCells={s.userCells}
-            selected={s.selected}
-            highlight={highlight}
-            mistakeCells={mistakeCells}
-            interaction={interaction}
-            highlightDigit={digitHighlight}
-            editable
-            notesMode={notesMode}
-            flashCell={flashCell}
-            flashId={flashId}
-            onSelect={handleSelect}
-            onActivate={handleActivate}
-            onDigit={handlePlaceDigit}
-            onToggleNote={handleToggleNote}
-            onClearNotes={s.clearCellNotes}
-          />
+          <div className="flex w-full items-center justify-end gap-1">
+            <ToolbarIconButton
+              label="Undo"
+              shortcut="Ctrl/Cmd+Z"
+              onClick={s.undo}
+              disabled={!s.canUndo || s.solving}
+            >
+              <UndoIcon />
+            </ToolbarIconButton>
+            <ToolbarIconButton
+              label="Redo"
+              shortcut="Ctrl/Cmd+Shift+Z"
+              onClick={s.redo}
+              disabled={!s.canRedo || s.solving}
+            >
+              <RedoIcon />
+            </ToolbarIconButton>
+          </div>
+          <div className="relative">
+            <SudokuGrid
+              placed={s.display.placed}
+              notes={s.notes}
+              userCells={s.userCells}
+              selected={s.selected}
+              highlight={highlight}
+              mistakeCells={mistakeCells}
+              interaction={interaction}
+              highlightDigit={digitHighlight}
+              editable={!s.solving}
+              notesMode={notesMode}
+              flashCell={flashCell}
+              flashId={flashId}
+              onSelect={handleSelect}
+              onActivate={handleActivate}
+              onDigit={handlePlaceDigit}
+              onToggleNote={handleToggleNote}
+              onClearNotes={s.clearCellNotes}
+            />
+            {s.solving && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-sm bg-white/80 dark:bg-neutral-900/80">
+                <div
+                  role="status"
+                  aria-label="Solving"
+                  className="h-10 w-10 animate-spin rounded-full border-4 border-neutral-300 border-t-blue-600 dark:border-neutral-600 dark:border-t-blue-400"
+                />
+                <span className="animate-pulse text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                  Solving…
+                </span>
+              </div>
+            )}
+          </div>
 
           {pasteOpen && (
             <div className="w-full max-w-md">
@@ -331,6 +397,30 @@ function SolverPage() {
               </span>
             )}
           </div>
+          {s.status === 'stuck' && (
+            <div className="max-w-md rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              <p>
+                Stuck — no more solving techniques apply from here. That usually means a
+                digit is wrong (a common cause: a misread photo upload).
+              </p>
+              <div className="mt-2 flex gap-3">
+                <button
+                  type="button"
+                  className="font-medium underline underline-offset-2 hover:no-underline"
+                  onClick={s.autoNotes}
+                >
+                  Fill in notes
+                </button>
+                <button
+                  type="button"
+                  className="font-medium underline underline-offset-2 hover:no-underline"
+                  onClick={s.check}
+                >
+                  Check for mistakes
+                </button>
+              </div>
+            </div>
+          )}
           {s.notice && (
             <p className="max-w-md text-sm text-amber-700 dark:text-amber-400">
               {s.notice}
@@ -515,6 +605,78 @@ function ProblemBody({ problem }: { problem: SolveProblem | null }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+interface ToolbarIconButtonProps {
+  label: string;
+  shortcut?: string;
+  onClick(): void;
+  disabled?: boolean;
+  children: ReactNode;
+}
+
+/** Icon-only button with a small custom tooltip (matches the app's look —
+ * native `title` tooltips are slow to appear and styled by the OS). */
+function ToolbarIconButton({
+  label,
+  shortcut,
+  onClick,
+  disabled,
+  children,
+}: ToolbarIconButtonProps) {
+  return (
+    <div className="group relative">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        disabled={disabled}
+        className="rounded-md p-2 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+      >
+        {children}
+      </button>
+      <span className="pointer-events-none absolute top-full left-1/2 z-30 mt-1 -translate-x-1/2 rounded-md bg-neutral-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 shadow-lg transition-opacity delay-150 group-hover:opacity-100 dark:bg-neutral-100 dark:text-neutral-900">
+        {label}
+        {shortcut ? ` (${shortcut})` : ''}
+      </span>
+    </div>
+  );
+}
+
+function UndoIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
+  );
+}
+
+function RedoIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </svg>
   );
 }
 
