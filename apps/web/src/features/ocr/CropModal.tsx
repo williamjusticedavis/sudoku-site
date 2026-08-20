@@ -119,96 +119,98 @@ export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
       role="dialog"
       aria-modal="true"
       aria-label="Crop the puzzle photo"
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/70 p-4"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/70"
       onClick={onCancel}
     >
-      <div className="max-w-md text-center text-sm text-neutral-200">
-        <p>Works best with a screenshot of a digital puzzle, not a photo of paper.</p>
-        <p className="mt-1">
-          Line up the guide lines with the puzzle&apos;s own grid lines — a loose crop can
-          misread digits.
-        </p>
-        <p className="mt-1 text-neutral-400">
-          Keep the box clean: nothing inside it but the 81 cells (no fingers, glare, or
-          marks).
-        </p>
-      </div>
-      <div
-        ref={containerRef}
-        className="relative inline-block max-h-[70vh] max-w-full touch-none"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <img
-          ref={imgRef}
-          src={imageUrl}
-          alt="Puzzle to crop"
-          onLoad={handleImageLoad}
-          className="block max-h-[70vh] max-w-full select-none"
-          draggable={false}
-        />
-        {box && (
-          <>
-            {/* Dim everything outside the crop box. Four explicit panels
+      <div className="flex min-h-full flex-col items-center justify-center gap-4 p-4">
+        <div className="max-w-md text-center text-sm text-neutral-200">
+          <p>Works best with a screenshot of a digital puzzle, not a photo of paper.</p>
+          <p className="mt-1">
+            Line up the guide lines with the puzzle&apos;s own grid lines — a loose crop
+            can misread digits.
+          </p>
+          <p className="mt-1 text-neutral-400">
+            Keep the box clean: nothing inside it but the 81 cells (no fingers, glare, or
+            marks).
+          </p>
+        </div>
+        <div
+          ref={containerRef}
+          className="relative inline-block max-h-[55dvh] max-w-full touch-none"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <img
+            ref={imgRef}
+            src={imageUrl}
+            alt="Puzzle to crop"
+            onLoad={handleImageLoad}
+            className="block max-h-[55dvh] max-w-full select-none"
+            draggable={false}
+          />
+          {box && (
+            <>
+              {/* Dim everything outside the crop box. Four explicit panels
                 instead of a huge box-shadow spread — that trick paints past
                 this container (no overflow-hidden here, and adding it would
                 clip the resize handle when the box reaches the image edge),
                 washing out the instructions/buttons outside the photo too. */}
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 bg-black/50"
-              style={{ height: box.y }}
-            />
-            <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/50"
-              style={{ top: box.y + box.size }}
-            />
-            <div
-              className="pointer-events-none absolute bg-black/50"
-              style={{ left: 0, top: box.y, width: box.x, height: box.size }}
-            />
-            <div
-              className="pointer-events-none absolute bg-black/50"
-              style={{ left: box.x + box.size, top: box.y, right: 0, height: box.size }}
-            />
-            <div
-              onPointerDown={startDrag('move')}
-              onPointerMove={handlePointerMove}
-              onPointerUp={endDrag}
-              className="absolute cursor-move touch-none border-2 border-emerald-400"
-              style={{ left: box.x, top: box.y, width: box.size, height: box.size }}
-            >
-              {/* Alignment guide — match these lines to the grid's own lines
-                  underneath so each cell lands in its own slice. */}
-              <div className="pointer-events-none absolute inset-0 grid grid-cols-9 grid-rows-9">
-                {Array.from({ length: 81 }, (_, i) => (
-                  <div key={i} className="border border-emerald-400/40" />
-                ))}
-              </div>
               <div
-                onPointerDown={startDrag('resize')}
+                className="pointer-events-none absolute inset-x-0 top-0 bg-black/50"
+                style={{ height: box.y }}
+              />
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/50"
+                style={{ top: box.y + box.size }}
+              />
+              <div
+                className="pointer-events-none absolute bg-black/50"
+                style={{ left: 0, top: box.y, width: box.x, height: box.size }}
+              />
+              <div
+                className="pointer-events-none absolute bg-black/50"
+                style={{ left: box.x + box.size, top: box.y, right: 0, height: box.size }}
+              />
+              <div
+                onPointerDown={startDrag('move')}
                 onPointerMove={handlePointerMove}
                 onPointerUp={endDrag}
-                className="absolute -right-2 -bottom-2 h-4 w-4 cursor-nwse-resize touch-none rounded-full border-2 border-emerald-400 bg-white"
-              />
-            </div>
-          </>
-        )}
-      </div>
-      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-100"
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
-          onClick={handleConfirm}
-          disabled={!box}
-        >
-          Use this crop
-        </button>
+                className="absolute cursor-move touch-none border-2 border-emerald-400"
+                style={{ left: box.x, top: box.y, width: box.size, height: box.size }}
+              >
+                {/* Alignment guide — match these lines to the grid's own lines
+                  underneath so each cell lands in its own slice. */}
+                <div className="pointer-events-none absolute inset-0 grid grid-cols-9 grid-rows-9">
+                  {Array.from({ length: 81 }, (_, i) => (
+                    <div key={i} className="border border-emerald-400/40" />
+                  ))}
+                </div>
+                <div
+                  onPointerDown={startDrag('resize')}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={endDrag}
+                  className="absolute -right-2 -bottom-2 h-4 w-4 cursor-nwse-resize touch-none rounded-full border-2 border-emerald-400 bg-white"
+                />
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-100"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+            onClick={handleConfirm}
+            disabled={!box}
+          >
+            Use this crop
+          </button>
+        </div>
       </div>
     </div>
   );

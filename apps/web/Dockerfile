@@ -18,6 +18,13 @@ CMD ["pnpm", "--filter", "@sudoku/web", "dev"]
 FROM base AS build
 COPY . .
 RUN pnpm install --frozen-lockfile
+# Vite inlines import.meta.env.VITE_* into the static bundle at build time —
+# setting it on the running prod container does nothing after the fact.
+# Must be passed as a Docker build ARG (Railway/Render forward configured
+# service variables as build args automatically when the Dockerfile declares
+# a matching ARG).
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 RUN pnpm --filter @sudoku/web build
 
 # ---- prod: runtime image for Render. server.mjs serves static assets + SSR
