@@ -24,6 +24,7 @@ const MIN_BOX_SIZE = 24;
  * app's standard Modal (needs to show the photo at a usable size), so it's
  * its own overlay rather than reusing that component. */
 export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
+  const flexAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{
@@ -33,6 +34,16 @@ export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
     start: Box;
   } | null>(null);
   const [box, setBox] = useState<Box | null>(null);
+  // CSS max-height/max-width percentages only resolve against an ancestor
+  // with an *explicit* height — an inline-block wrapper that only has
+  // max-height (no height) doesn't count, so the image silently rendered
+  // at its full natural size, uncapped, overflowing past the visible
+  // viewport. Measuring the real available box in JS and applying it as a
+  // pixel value sidesteps that whole CSS percentage-resolution chain.
+  const [availableSize, setAvailableSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -42,12 +53,35 @@ export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onCancel]);
 
-  function handleImageLoad() {
+  useEffect(() => {
+    const el = flexAreaRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      setAvailableSize({ width, height });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  function centerBoxInContainer() {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const size = Math.min(rect.width, rect.height) * 0.8;
     setBox({ x: (rect.width - size) / 2, y: (rect.height - size) / 2, size });
   }
+
+  function handleImageLoad() {
+    centerBoxInContainer();
+  }
+
+  // Re-center whenever the available space changes (window resize, mobile
+  // orientation change) so the crop box stays valid against the image's
+  // new rendered size instead of pointing at stale coordinates.
+  useEffect(() => {
+    if (availableSize) centerBoxInContainer();
+  }, [availableSize]);
 
   function startDrag(mode: 'move' | 'resize') {
     return (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -119,32 +153,42 @@ export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
       role="dialog"
       aria-modal="true"
       aria-label="Crop the puzzle photo"
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/70"
+      className="fixed inset-0 z-50 flex flex-col bg-black/90"
       onClick={onCancel}
     >
-      <div className="flex min-h-full flex-col items-center justify-center gap-4 p-4">
-        <div className="max-w-md text-center text-sm text-neutral-200">
-          <p>Works best with a screenshot of a digital puzzle, not a photo of paper.</p>
-          <p className="mt-1">
-            Line up the guide lines with the puzzle&apos;s own grid lines — a loose crop
-            can misread digits.
-          </p>
-          <p className="mt-1 text-neutral-400">
-            Keep the box clean: nothing inside it but the 81 cells (no fingers, glare, or
-            marks).
-          </p>
-        </div>
+      <p className="shrink-0 px-3 py-1.5 text-center text-xs text-neutral-300">
+        Line up the box with the puzzle&apos;s own grid lines — no fingers, glare, or
+        extra marks inside it.
+      </p>
+      <div
+        ref={flexAreaRef}
+        className="flex min-h-0 flex-1 items-center justify-center p-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* This inner div must hug the image's own rendered box exactly
+            (inline-block shrink-to-fit) — the crop math below measures
+            everything relative to *this* rect, not the centering flex
+            parent's full-viewport rect. Sized via the JS-measured
+            availableSize (px), not a CSS max-height percentage — see the
+            comment on availableSize's declaration for why that failed. */}
         <div
           ref={containerRef}
-          className="relative inline-block max-h-[55dvh] max-w-full touch-none"
-          onClick={(e) => e.stopPropagation()}
+          className="relative inline-block touch-none"
+          style={{
+            maxHeight: availableSize?.height,
+            maxWidth: availableSize?.width,
+          }}
         >
           <img
             ref={imgRef}
             src={imageUrl}
             alt="Puzzle to crop"
             onLoad={handleImageLoad}
-            className="block max-h-[55dvh] max-w-full select-none"
+            className="block select-none"
+            style={{
+              maxHeight: availableSize?.height,
+              maxWidth: availableSize?.width,
+            }}
             draggable={false}
           />
           {box && (
@@ -194,23 +238,27 @@ export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
             </>
           )}
         </div>
-        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-100"
-            onClick={onCancel}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
-            onClick={handleConfirm}
-            disabled={!box}
-          >
-            Use this crop
-          </button>
-        </div>
+      </div>
+      <div
+        className="flex shrink-0 justify-center gap-2 px-3 pt-2"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-100"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+          onClick={handleConfirm}
+          disabled={!box}
+        >
+          Use this crop
+        </button>
       </div>
     </div>
   );
