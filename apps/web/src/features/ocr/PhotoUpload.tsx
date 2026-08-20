@@ -9,10 +9,20 @@ interface PhotoUploadProps {
 }
 
 // Falls back to the repo's documented local-dev default (see .env.example)
-// for standalone `pnpm dev` outside docker compose, which is the only place
-// that injects VITE_API_URL as a real env var today.
-const API_URL =
-  (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:4000';
+// for standalone `pnpm dev` outside docker compose.
+//
+// A bare domain (no scheme) isn't an absolute URL to fetch() — it's a
+// relative path, silently resolved against the current page's own origin
+// instead of erroring. Hit this for real: a platform's "public domain"
+// reference variable (e.g. Railway's RAILWAY_PUBLIC_DOMAIN) is just the
+// domain, no https:// — normalize defensively rather than trust the env
+// var's shape.
+function normalizeApiUrl(raw: string): string {
+  return /^https?:\/\//.test(raw) ? raw : `https://${raw}`;
+}
+const API_URL = normalizeApiUrl(
+  (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:4000',
+);
 
 type Stage = 'idle' | 'cropping' | 'uploading';
 
