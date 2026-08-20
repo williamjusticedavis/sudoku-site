@@ -89,7 +89,6 @@ export function PhotoUpload({ onGrid, onError, className, disabled }: PhotoUploa
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={handlePick}
       />

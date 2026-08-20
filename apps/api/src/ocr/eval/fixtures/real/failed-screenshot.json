@@ -1,0 +1,6 @@
+{
+  "label": "failed-screenshot",
+  "notes": "IMG_4278 — a real screenshot from the sudoku app the user actually plays; tesseract almost completely failed to fill the grid (a handful of cells, all wrong). Root-caused to tesseract's classifier genuinely misreading this app's thin, off-center '1' glyph as '4', consistent across PSM modes and upscaling — this is the failure that prompted the whole multi-font template-matching effort. Both '1' digits in this grid (r2c9, r5c1) are flagged as regressionCells; the harness reports them separately regardless of which one was in the original isolated-cell test.",
+  "grid": ".5.6............21.9...........1.9.81...3..........5..6..5.9...4......3....8.....",
+  "regressionCells": ["r2c9", "r5c1"]
+}

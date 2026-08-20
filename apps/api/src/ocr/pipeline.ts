@@ -1,6 +1,24 @@
 import sharp from 'sharp';
+import { classifyCell, TEMPLATE_CONFIDENCE_THRESHOLD } from './classify.js';
 import { withConcurrency } from './concurrency.js';
 import { CONFIDENCE_THRESHOLD, ocrCell, type CellOcrResult } from './tesseract.js';
+
+/** `template` (Stage 1 multi-font zone-feature matcher, classify.ts — default)
+ * or `tesseract` (general-purpose OCR engine, tesseract.ts, kept as an
+ * opt-in fallback via OCR_CLASSIFIER=tesseract). Flipped to `template` once
+ * M5's eval harness cleared the plan's own bar for it: beating tesseract on
+ * both real screenshot fixtures, not just synthetic held-out fonts —
+ * confirmed 100%/100% vs. 94.7%/64.7% non-blank accuracy, including the
+ * literal r5c1 "1" misread that started this effort, now read correctly by
+ * both. Re-run `pnpm --filter @sudoku/api eval:ocr` before changing this
+ * default again — it's not a guess either way. */
+type ClassifierMode = 'template' | 'tesseract';
+function resolveClassifierMode(): ClassifierMode {
+  return process.env.OCR_CLASSIFIER === 'tesseract' ? 'tesseract' : 'template';
+}
+function confidenceThresholdFor(mode: ClassifierMode): number {
+  return mode === 'template' ? TEMPLATE_CONFIDENCE_THRESHOLD : CONFIDENCE_THRESHOLD;
+}
 
 // Canonical square the photo is normalized to before slicing. Divisible by 9
 // so every cell is an exact 100x100px square.
@@ -40,6 +58,16 @@ const PEAK_PROMINENCE_RATIO = 1.3;
 // Floor on the gap between two adjacent detected lines (well under the true
 // ~100px cell width) — catches a collapsed/false-peak pair.
 const MIN_CELL_PX = 60;
+// A major line (outer border / block divider) spans the full grid width or
+// height, so it should dominate its row/column's dark-pixel count — real
+// detected majors scored 780-900 out of 900 in testing. A "peak" well below
+// this is more likely an isolated digit stroke than a real line; the
+// relative prominence-ratio check alone doesn't catch this; a weak-in-
+// absolute-terms peak can still beat a near-empty window's low median.
+// Found via a real screenshot where a digit stroke (98/900, ~11% coverage)
+// beat the window median enough to pass the ratio check and pull the
+// bottom-border major 45px off its true position.
+const MIN_MAJOR_LINE_RATIO = 0.3;
 
 export type PipelineResult =
   | { ok: true; grid: string; confidentCount: number; blankCount: number }
@@ -81,37 +109,60 @@ function median(values: readonly number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
 }
 
-/** Pure — refine the 10 uniform grid-line positions (0, CELL_PX, ..., 900) by
- * searching a small window around each for the true darkness peak, instead
- * of trusting the crop to map exactly onto the grid. Each line is searched
- * independently around its OWN uniform position (not chained off the
- * previous line) so error can't accumulate across the axis. Falls back to
- * the uniform position — never worse than today's baseline — when a window
- * has no prominent peak, or when two adjacent detected lines land
- * implausibly close together. */
+/** Pure — search a small window around one uniform position for the true
+ * darkness peak, falling back to the uniform position when the window has
+ * no prominent peak. */
+function findLine(profile: Uint32Array, center: number): number {
+  const lo = Math.max(0, center - LINE_SEARCH_RADIUS_PX);
+  const hi = Math.min(GRID_SIZE - 1, center + LINE_SEARCH_RADIUS_PX);
+  const window: number[] = [];
+  let bestPos = center;
+  let bestVal = -1;
+  for (let p = lo; p <= hi; p++) {
+    const v = profile[p]!;
+    window.push(v);
+    if (v > bestVal) {
+      bestVal = v;
+      bestPos = p;
+    }
+  }
+  if (bestVal <= 0) return center; // window is entirely blank — nothing to find
+  if (bestVal < GRID_SIZE * MIN_MAJOR_LINE_RATIO) return center; // too weak to be a real full-span line
+  const baseline = Math.max(median(window), 1);
+  return bestVal / baseline >= PEAK_PROMINENCE_RATIO ? bestPos : center;
+}
+
+/** Pure — refine the 10 grid-line positions (0, CELL_PX, ..., 900). Only the
+ * 4 lines that double as block dividers (indices 0, 3, 6, 9 — the outer
+ * border plus the two bold block-divider lines most sudoku UIs render
+ * thicker than regular cell dividers) are independently peak-searched; the
+ * other 6 are interpolated as exact thirds between their block's two
+ * anchors. Searching all 10 independently was the original approach, but a
+ * real failing screenshot showed why it's fragile: that app's block
+ * dividers scored 600-900 on the darkness profile while its regular cell
+ * dividers scored only 50-150 — faint enough that a nearby digit stroke
+ * regularly outscored the true line within the same search window,
+ * producing wildly uneven cell spans (66px next to 135px). Anchoring on the
+ * 4 reliably-strong lines and interpolating the rest removes that failure
+ * mode entirely, at the cost of assuming even cell spacing within a block —
+ * true for every sudoku grid regardless of how faint its lines are. */
 export function detectGridLines(profile: Uint32Array): number[] {
   const uniform = Array.from({ length: 10 }, (_, i) =>
     Math.min(i * CELL_PX, GRID_SIZE - 1),
   );
 
-  const detected = uniform.map((center) => {
-    const lo = Math.max(0, center - LINE_SEARCH_RADIUS_PX);
-    const hi = Math.min(GRID_SIZE - 1, center + LINE_SEARCH_RADIUS_PX);
-    const window: number[] = [];
-    let bestPos = center;
-    let bestVal = -1;
-    for (let p = lo; p <= hi; p++) {
-      const v = profile[p]!;
-      window.push(v);
-      if (v > bestVal) {
-        bestVal = v;
-        bestPos = p;
-      }
-    }
-    if (bestVal <= 0) return center; // window is entirely blank — nothing to find
-    const baseline = Math.max(median(window), 1);
-    return bestVal / baseline >= PEAK_PROMINENCE_RATIO ? bestPos : center;
-  });
+  const majorIndices = [0, 3, 6, 9];
+  const majors = majorIndices.map((i) => findLine(profile, uniform[i]!));
+
+  const detected: number[] = [];
+  for (let block = 0; block < 3; block++) {
+    const start = majors[block]!;
+    const end = majors[block + 1]!;
+    detected.push(start);
+    detected.push(start + Math.round((end - start) / 3));
+    detected.push(start + Math.round(((end - start) * 2) / 3));
+  }
+  detected.push(majors[3]!);
 
   for (let i = 0; i < detected.length - 1; i++) {
     if (detected[i + 1]! - detected[i]! < MIN_CELL_PX) {
@@ -125,7 +176,10 @@ export function detectGridLines(profile: Uint32Array): number[] {
 /** Pure — assemble the 81-char grid string from per-cell OCR results, applying
  * the confidence threshold. Low-confidence/absent reads become '.' rather
  * than risk a wrong digit. */
-export function assembleGrid(cellResults: readonly CellOcrResult[]): {
+export function assembleGrid(
+  cellResults: readonly CellOcrResult[],
+  confidenceThreshold: number = CONFIDENCE_THRESHOLD,
+): {
   grid: string;
   confidentCount: number;
   blankCount: number;
@@ -134,7 +188,7 @@ export function assembleGrid(cellResults: readonly CellOcrResult[]): {
   let confidentCount = 0;
   let blankCount = 0;
   for (const result of cellResults) {
-    if (result.digit !== null && result.confidence >= CONFIDENCE_THRESHOLD) {
+    if (result.digit !== null && result.confidence >= confidenceThreshold) {
       grid += result.digit;
       confidentCount++;
     } else {
@@ -211,9 +265,12 @@ export async function extractGrid(imageBuffer: Buffer): Promise<PipelineResult> 
   }
 
   const debug = process.env.OCR_DEBUG === 'true';
+  const classifierMode = resolveClassifierMode();
+  const confidenceThreshold = confidenceThresholdFor(classifierMode);
   const rowLines = detectGridLines(computeProfile(normalized, 'row'));
   const colLines = detectGridLines(computeProfile(normalized, 'col'));
   if (debug) {
+    console.log(`[ocr] classifier: ${classifierMode}`);
     console.log(`[ocr] rows: ${rowLines.join(',')}`);
     console.log(`[ocr] cols: ${colLines.join(',')}`);
   }
@@ -229,26 +286,33 @@ export async function extractGrid(imageBuffer: Buffer): Promise<PipelineResult> 
           console.log(`[ocr] ${label} ink=${ink.toFixed(4)} -> skipped as blank`);
         return { digit: null, confidence: 0 };
       }
-      const png = await sharp(cell.data, {
-        raw: { width: cell.width, height: cell.height, channels: 1 },
-      })
-        .png()
-        .toBuffer();
-      const result = await ocrCell(png);
+      const result =
+        classifierMode === 'template'
+          ? classifyCell(cell.data, cell.width, cell.height)
+          : await ocrCell(
+              await sharp(cell.data, {
+                raw: { width: cell.width, height: cell.height, channels: 1 },
+              })
+                .png()
+                .toBuffer(),
+            );
       if (debug) {
         const verdict =
-          result.digit !== null && result.confidence >= CONFIDENCE_THRESHOLD
+          result.digit !== null && result.confidence >= confidenceThreshold
             ? 'kept'
             : 'rejected';
         console.log(
-          `[ocr] ${label} ink=${ink.toFixed(4)} tesseract=${JSON.stringify(result)} -> ${verdict}`,
+          `[ocr] ${label} ink=${ink.toFixed(4)} ${classifierMode}=${JSON.stringify(result)} -> ${verdict}`,
         );
       }
       return result;
     },
   );
 
-  const { grid, confidentCount, blankCount } = assembleGrid(cellResults);
+  const { grid, confidentCount, blankCount } = assembleGrid(
+    cellResults,
+    confidenceThreshold,
+  );
   if (confidentCount === 0) return { ok: false, reason: 'too-few-confident-digits' };
   return { ok: true, grid, confidentCount, blankCount };
 }

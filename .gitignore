@@ -7,3 +7,7 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Generated at build/dev-start time by generate-bank.ts — regenerate via
+# `pnpm --filter @sudoku/api generate:ocr-bank`, never hand-edited or committed.
+apps/api/src/ocr/glyphs/bank.generated.json

@@ -1,0 +1,5 @@
+{
+  "label": "worked-screenshot",
+  "notes": "Screenshot 2026-08-17 — the first real-app screenshot tested; tesseract read this one correctly. Kept as a non-regression baseline.",
+  "grid": "54..8....9...........2..3....16.....8...9...5.....37....6..7...........1....5..94"
+}
