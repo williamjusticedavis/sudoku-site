@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { CropModal } from './CropModal.js';
 
 interface PhotoUploadProps {
@@ -47,39 +47,51 @@ function describeOcrError(code: string | undefined): string {
 export function PhotoUpload({ onGrid, onError, className, disabled }: PhotoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>('idle');
+  const [pickedFile, setPickedFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // Derive the object URL from the picked File, in the same effect that
+  // revokes it — new pick, cleanup, or unmount mid-crop all run this
+  // cleanup, so the object URL never outlives the component's need for it.
+  useEffect(() => {
+    if (!pickedFile) {
+      setImageUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(pickedFile);
+    setImageUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pickedFile]);
 
   function handlePick(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ''; // allow re-picking the same file later
     if (!file) return;
-    setImageUrl(URL.createObjectURL(file));
+    setPickedFile(file);
     setStage('cropping');
   }
 
-  function cleanupImage() {
-    setImageUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
-  }
-
   function handleCancelCrop() {
-    cleanupImage();
+    setPickedFile(null);
     setStage('idle');
   }
 
   async function handleCropConfirm(blob: Blob) {
-    cleanupImage();
+    setPickedFile(null);
     setStage('uploading');
     try {
       const form = new FormData();
       form.append('image', blob, 'grid.png');
       const res = await fetch(`${API_URL}/ocr/grid`, { method: 'POST', body: form });
+      if (!res.ok) {
+        const errorBody: { error?: string } | null = await res.json().catch(() => null);
+        onError(describeOcrError(errorBody?.error));
+        return;
+      }
       const body: { ok?: boolean; grid?: string; error?: string } | null = await res
         .json()
         .catch(() => null);
-      if (!res.ok || !body?.ok || !body.grid) {
+      if (!body?.ok || !body.grid) {
         onError(describeOcrError(body?.error));
       } else {
         onGrid(body.grid);

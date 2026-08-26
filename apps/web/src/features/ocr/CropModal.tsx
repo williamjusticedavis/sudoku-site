@@ -24,6 +24,7 @@ const MIN_BOX_SIZE = 24;
  * app's standard Modal (needs to show the photo at a usable size), so it's
  * its own overlay rather than reusing that component. */
 export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const flexAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -45,12 +46,21 @@ export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
     height: number;
   } | null>(null);
 
+  // This component only mounts while the crop step is active, so open it
+  // once on mount rather than driving it from an `open` prop.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    dialogRef.current?.showModal();
+  }, []);
+
+  // Escape and dialog.close() (backdrop click / Cancel button) both fire the
+  // native 'close' event — native <dialog> handles the Escape key itself, no
+  // manual keydown listener needed.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const onNativeClose = () => onCancel();
+    dialog.addEventListener('close', onNativeClose);
+    return () => dialog.removeEventListener('close', onNativeClose);
   }, [onCancel]);
 
   useEffect(() => {
@@ -149,12 +159,11 @@ export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      ref={dialogRef}
       aria-label="Crop the puzzle photo"
-      className="fixed inset-0 z-50 flex flex-col bg-black/90"
-      onClick={onCancel}
+      className="fixed inset-0 m-0 h-full max-h-none w-full max-w-none flex-col border-0 bg-black/90 p-0 open:flex"
+      onClick={() => dialogRef.current?.close()}
     >
       <p className="shrink-0 px-3 py-1.5 text-center text-xs text-neutral-300">
         Line up the box with the puzzle&apos;s own grid lines — no fingers, glare, or
@@ -247,7 +256,7 @@ export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
         <button
           type="button"
           className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-100"
-          onClick={onCancel}
+          onClick={() => dialogRef.current?.close()}
         >
           Cancel
         </button>
@@ -260,6 +269,6 @@ export function CropModal({ imageUrl, onConfirm, onCancel }: CropModalProps) {
           Use this crop
         </button>
       </div>
-    </div>
+    </dialog>
   );
 }
