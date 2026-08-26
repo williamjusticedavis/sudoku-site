@@ -176,8 +176,9 @@ export function useSolver(): UseSolver {
   const setDigit = useCallback(
     (cell: number, digit: number | null) => {
       pushUndo();
-      // Commit the full board (incl. any hint fills) plus this edit into `base`.
-      const placed = [...serializeGrid(full)];
+      // Commit the VIEWED board (honours scrubbing — not the fully-hinted end
+      // state) plus this edit into `base`.
+      const placed = [...serializeGrid(display)];
       placed[cell] = digit === null ? '.' : String(digit);
       setBase(placed.join(''));
       setUserCells((prev) => {
@@ -197,7 +198,7 @@ export function useSolver(): UseSolver {
       });
       resetSolve();
     },
-    [full, resetSolve, pushUndo],
+    [display, resetSolve, pushUndo],
   );
 
   const toggleNote = useCallback(
