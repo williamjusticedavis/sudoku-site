@@ -5,6 +5,7 @@ import { useSolver } from '../features/solver/useSolver.js';
 import { buildHighlightMap } from '../features/solver/highlights.js';
 import { SudokuGrid, type Interaction } from '../features/solver/SudokuGrid.js';
 import { MobileStepper } from '../features/solver/MobileStepper.js';
+import { NumberPad } from '../features/solver/NumberPad.js';
 import { Modal } from '../features/solver/Modal.js';
 import { PhotoUpload } from '../features/ocr/PhotoUpload.js';
 import { describeMistake, mistakeKey } from '../features/solver/describeMistake.js';
@@ -193,6 +194,22 @@ function SolverPage() {
     [s, flashBlocker],
   );
 
+  // On-screen number pad (mobile — the grid has no real <input>, so tapping a
+  // cell never opens the OS keyboard). Mirrors the physical-keyboard handler.
+  const handlePadDigit = useCallback(
+    (digit: number) => {
+      if (s.selected === null) return;
+      if (notesMode) handleToggleNote(s.selected, digit);
+      else handlePlaceDigit(s.selected, digit);
+    },
+    [s.selected, notesMode, handleToggleNote, handlePlaceDigit],
+  );
+  const handlePadErase = useCallback(() => {
+    if (s.selected === null) return;
+    if (notesMode) s.clearCellNotes(s.selected);
+    else handlePlaceDigit(s.selected, null);
+  }, [s.selected, notesMode, s.clearCellNotes, handlePlaceDigit]);
+
   // Keep the newest applied step in view as the list grows.
   const listRef = useRef<HTMLOListElement>(null);
   useEffect(() => {
@@ -372,6 +389,13 @@ function SolverPage() {
               </div>
             )}
           </div>
+
+          <NumberPad
+            disabled={s.selected === null || s.solving}
+            notesMode={notesMode || shiftHeld}
+            onDigit={handlePadDigit}
+            onErase={handlePadErase}
+          />
 
           {pasteOpen && (
             <div className="w-full max-w-md">
