@@ -181,9 +181,11 @@ export function SudokuGrid({
 
   // Latest handlers in refs so the memoized cell callbacks can stay stable.
   const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
   const onActivateRef = useRef(onActivate);
-  onActivateRef.current = onActivate;
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+    onActivateRef.current = onActivate;
+  }, [onSelect, onActivate]);
 
   // Keep the selected cell in a ref so a keypress fired a few ms after a click
   // uses the up-to-date selection (React may not have re-rendered yet).

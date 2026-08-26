@@ -1,32 +1,22 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BOXES, COLS, PEERS, ROWS, cellName, type Mistake } from '@sudoku/engine';
-import { useSolver, type SolveProblem } from '../features/solver/useSolver.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BOXES, COLS, PEERS, ROWS } from '@sudoku/engine';
+import { useSolver } from '../features/solver/useSolver.js';
 import { buildHighlightMap } from '../features/solver/highlights.js';
 import { SudokuGrid, type Interaction } from '../features/solver/SudokuGrid.js';
 import { MobileStepper } from '../features/solver/MobileStepper.js';
 import { Modal } from '../features/solver/Modal.js';
 import { PhotoUpload } from '../features/ocr/PhotoUpload.js';
+import { describeMistake, mistakeKey } from '../features/solver/describeMistake.js';
+import { ProblemBody } from '../features/solver/ProblemBody.js';
+import { ToolbarIconButton } from '../features/solver/ToolbarIconButton.js';
+import { UndoIcon, RedoIcon } from '../features/solver/icons.js';
+import { StatusBadge } from '../features/solver/StatusBadge.js';
 
 export const Route = createFileRoute('/')({ component: SolverPage });
 
 const EXAMPLE =
   '53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79';
-
-function describeMistake(m: Mistake): string {
-  switch (m.kind) {
-    case 'digit-conflict':
-      return `${m.digit} repeated in ${m.unitKind} ${m.unitIndex + 1} (${cellName(
-        m.cells[0],
-      )}, ${cellName(m.cells[1])})`;
-    case 'impossible-candidate':
-      return `${cellName(m.cell)} can't be ${m.digit} — ${cellName(
-        m.conflictingCell,
-      )} already has it`;
-    case 'missing-digit':
-      return `${m.digit} has no place left in ${m.unitKind} ${m.unitIndex + 1}`;
-  }
-}
 
 const btn =
   'rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40';
@@ -385,7 +375,11 @@ function SolverPage() {
 
           {pasteOpen && (
             <div className="w-full max-w-md">
+              <label htmlFor="paste-input" className={groupLabel}>
+                Paste puzzle
+              </label>
               <textarea
+                id="paste-input"
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
                 placeholder="Paste 81 characters (digits 1–9, . or 0 for blanks). Whitespace is ignored."
@@ -480,8 +474,8 @@ function SolverPage() {
                   </p>
                 ) : (
                   <ul className="list-inside list-disc text-sm text-rose-600 dark:text-rose-400">
-                    {s.mistakes.map((m, i) => (
-                      <li key={i}>{describeMistake(m)}</li>
+                    {s.mistakes.map((m) => (
+                      <li key={mistakeKey(m)}>{describeMistake(m)}</li>
                     ))}
                   </ul>
                 )}
@@ -634,115 +628,5 @@ function SolverPage() {
         <ProblemBody problem={s.problem} />
       </Modal>
     </main>
-  );
-}
-
-function ProblemBody({ problem }: { problem: SolveProblem | null }) {
-  if (!problem) return null;
-  if (problem.reason === 'unsolvable') {
-    return (
-      <p>
-        There is a mistake: this grid has no valid solution. Double-check your entries and
-        try again.
-      </p>
-    );
-  }
-  return (
-    <div>
-      <p>There is a mistake — the same digit appears more than once in a unit:</p>
-      <ul className="mt-2 list-inside list-disc text-rose-600 dark:text-rose-400">
-        {problem.mistakes.map((m, i) => (
-          <li key={i}>{describeMistake(m)}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-interface ToolbarIconButtonProps {
-  label: string;
-  shortcut?: string;
-  onClick(): void;
-  disabled?: boolean;
-  children: ReactNode;
-}
-
-/** Icon-only button with a small custom tooltip (matches the app's look —
- * native `title` tooltips are slow to appear and styled by the OS). */
-function ToolbarIconButton({
-  label,
-  shortcut,
-  onClick,
-  disabled,
-  children,
-}: ToolbarIconButtonProps) {
-  return (
-    <div className="group relative">
-      <button
-        type="button"
-        aria-label={label}
-        onClick={onClick}
-        disabled={disabled}
-        className="rounded-md p-2 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-      >
-        {children}
-      </button>
-      <span className="pointer-events-none absolute top-full left-1/2 z-30 mt-1 -translate-x-1/2 rounded-md bg-neutral-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 shadow-lg transition-opacity delay-150 group-hover:opacity-100 dark:bg-neutral-100 dark:text-neutral-900">
-        {label}
-        {shortcut ? ` (${shortcut})` : ''}
-      </span>
-    </div>
-  );
-}
-
-function UndoIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M9 14 4 9l5-5" />
-      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
-    </svg>
-  );
-}
-
-function RedoIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="m15 14 5-5-5-5" />
-      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
-    </svg>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    solved:
-      'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200',
-    stuck: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200',
-    editing: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
-  };
-  return (
-    <span
-      className={`rounded-full px-3 py-1 text-xs font-medium ${styles[status] ?? styles.editing}`}
-    >
-      {status}
-    </span>
   );
 }
