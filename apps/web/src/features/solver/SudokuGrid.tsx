@@ -59,7 +59,7 @@ function NoteMarks({
   highlightDigit: number | null;
 }) {
   return (
-    <div className="grid h-full w-full grid-cols-3 grid-rows-3 text-[9px] leading-none font-normal text-neutral-500 sm:text-[10px] dark:text-neutral-400">
+    <div className="grid h-full w-full grid-cols-3 grid-rows-3 text-[clamp(0.5rem,2.2cqw,0.85rem)] leading-none font-normal text-neutral-500 dark:text-neutral-400">
       {Array.from({ length: 9 }, (_, k) => {
         const d = k + 1;
         const has = (mask & (1 << k)) !== 0;
@@ -128,7 +128,7 @@ const Cell = memo(function Cell({
       onClick={() => onSelect(index)}
       onDoubleClick={() => onDoubleClick(index)}
       className={[
-        'flex h-10 w-10 items-center justify-center text-xl font-medium select-none sm:h-12 sm:w-12 sm:text-2xl',
+        'flex h-full w-full items-center justify-center text-[clamp(0.9rem,6.2cqw,3rem)] font-medium select-none',
         'border-r border-b border-neutral-300 dark:border-neutral-700',
         bg,
         isUser
@@ -263,7 +263,7 @@ export function SudokuGrid({
       tabIndex={0}
       onKeyDown={handleKey}
       aria-label="Sudoku grid"
-      className="inline-grid grid-cols-9 rounded-sm border-2 border-neutral-700 outline-none ring-blue-500 focus:ring-2 dark:border-neutral-300"
+      className="grid aspect-square w-full max-w-[560px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 outline-none ring-blue-500 focus:ring-2 [container-type:size] lg:w-[min(100%,100cqh)] lg:max-w-none dark:border-neutral-300"
     >
       {Array.from({ length: 81 }, (_, i) => (
         <Cell

@@ -4,6 +4,7 @@ import { BOXES, COLS, PEERS, ROWS, cellName, type Mistake } from '@sudoku/engine
 import { useSolver, type SolveProblem } from '../features/solver/useSolver.js';
 import { buildHighlightMap } from '../features/solver/highlights.js';
 import { SudokuGrid, type Interaction } from '../features/solver/SudokuGrid.js';
+import { MobileStepper } from '../features/solver/MobileStepper.js';
 import { Modal } from '../features/solver/Modal.js';
 import { PhotoUpload } from '../features/ocr/PhotoUpload.js';
 
@@ -49,8 +50,20 @@ function SolverPage() {
   const [flashId, setFlashId] = useState(0);
   // Digit whose every instance is highlighted (set by double-clicking a number).
   const [digitHighlight, setDigitHighlight] = useState<number | null>(null);
+  // Mobile only: the full step list is collapsed by default (the docked
+  // MobileStepper below the grid handles step-by-step navigation instead).
+  const [mobileListOpen, setMobileListOpen] = useState(false);
+  const gridWrapperRef = useRef<HTMLDivElement>(null);
   const highlight = buildHighlightMap(s.currentStep);
   const panelOpen = s.history.length > 0 || s.mistakes !== null;
+
+  // On mobile the step list sits below the grid, so jumping to a step (or
+  // stepping via the docked mobile bar) leaves the grid off-screen — bring it
+  // back into view. No-op on desktop, where both are already visible at once.
+  const scrollToGridOnMobile = useCallback(() => {
+    if (window.matchMedia('(min-width: 1024px)').matches) return;
+    gridWrapperRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
 
   // Cells flagged by the last mistake check (conflicts + impossible marks;
   // missing-digit highlights its whole unit).
@@ -197,7 +210,7 @@ function SolverPage() {
   }, [s.history.length]);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-6 lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden">
+    <main className="mx-auto max-w-[1800px] px-4 pt-6 pb-28 lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:pb-6">
       <header className="mb-6 lg:shrink-0">
         <h1 className="text-2xl font-bold">Sudoku Solver</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
@@ -314,7 +327,7 @@ function SolverPage() {
         </aside>
 
         {/* Left: grid + status */}
-        <section className="flex flex-col items-start gap-4">
+        <section className="flex min-w-0 flex-col items-start gap-4 lg:min-h-0 lg:flex-1">
           <div className="flex w-full items-center justify-end gap-1">
             <ToolbarIconButton
               label="Undo"
@@ -333,7 +346,10 @@ function SolverPage() {
               <RedoIcon />
             </ToolbarIconButton>
           </div>
-          <div className="relative">
+          <div
+            ref={gridWrapperRef}
+            className="relative flex w-full items-center justify-center lg:min-h-0 lg:flex-1 lg:[container-type:size]"
+          >
             <SudokuGrid
               placed={s.display.placed}
               notes={s.notes}
@@ -430,7 +446,7 @@ function SolverPage() {
 
         {/* Right: solve process */}
         {panelOpen && (
-          <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <section className="flex min-h-0 w-full min-w-0 max-w-md flex-col">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold">
                 {s.history.length > 0 ? 'Steps' : 'Mistake check'}
@@ -446,7 +462,9 @@ function SolverPage() {
             </div>
 
             {s.currentStep && (
-              <div className="mb-4 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+              // Hidden on mobile — the docked MobileStepper below the grid
+              // shows the same thing without needing to scroll down to it.
+              <div className="mb-4 hidden rounded-md border border-neutral-200 p-3 lg:block dark:border-neutral-800">
                 <div className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
                   {s.currentStep.technique}
                 </div>
@@ -471,9 +489,23 @@ function SolverPage() {
             )}
 
             {s.history.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setMobileListOpen((o) => !o)}
+                className="mb-2 flex w-full items-center justify-between rounded px-1 py-1 text-sm text-neutral-500 hover:bg-neutral-100 lg:hidden dark:text-neutral-400 dark:hover:bg-neutral-800"
+              >
+                <span>{mobileListOpen ? 'Hide all steps' : 'View all steps'}</span>
+                <span className="text-xs">{mobileListOpen ? '▲' : '▼'}</span>
+              </button>
+            )}
+
+            {s.history.length > 0 && (
               <ol
                 ref={listRef}
-                className="max-h-[60vh] min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 lg:max-h-none"
+                className={[
+                  mobileListOpen ? '' : 'hidden',
+                  'max-h-[60vh] min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 lg:block lg:max-h-none',
+                ].join(' ')}
               >
                 {s.history.map((step, i) => {
                   const isCurrent = i === s.viewIndex - 1;
@@ -482,7 +514,10 @@ function SolverPage() {
                     <li key={i}>
                       <button
                         type="button"
-                        onClick={() => s.viewStep(i + 1)}
+                        onClick={() => {
+                          s.viewStep(i + 1);
+                          scrollToGridOnMobile();
+                        }}
                         title="Jump to this step"
                         className={[
                           'w-full rounded px-2 py-1 text-left text-sm',
@@ -508,6 +543,22 @@ function SolverPage() {
           </section>
         )}
       </div>
+
+      {s.history.length > 0 && (
+        <MobileStepper
+          step={s.currentStep}
+          viewIndex={s.viewIndex}
+          totalSteps={s.history.length}
+          onPrev={() => {
+            s.viewStep(s.viewIndex - 1);
+            scrollToGridOnMobile();
+          }}
+          onNext={() => {
+            s.viewStep(s.viewIndex + 1);
+            scrollToGridOnMobile();
+          }}
+        />
+      )}
 
       {/* Confirm clearing the grid */}
       <Modal
