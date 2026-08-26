@@ -30,6 +30,14 @@ export interface SolveProblem {
   readonly mistakes: readonly Mistake[];
 }
 
+/** Engine-computed candidates for a board (never the user's notation) as a
+ * per-cell notes array — the same shape `autoNotes` fills in manually. */
+function computeCandidates(g: Grid): Uint16Array {
+  const next = new Uint16Array(81);
+  for (let i = 0; i < 81; i++) if (g.placed[i] === 0) next[i] = g.candidates[i]!;
+  return next;
+}
+
 /** Normalize arbitrary pasted text to an 81-char givens string, or null. */
 export function sanitizePuzzle(input: string): string | null {
   const cleaned = [...input]
@@ -226,10 +234,8 @@ export function useSolver(): UseSolver {
     // Engine-computed candidates from the currently VIEWED board (honours
     // scrubbing back through history — not the fully-hinted end state).
     const g = parseGrid(serializeGrid(display));
-    const next = new Uint16Array(81);
-    for (let i = 0; i < 81; i++) if (g.placed[i] === 0) next[i] = g.candidates[i]!;
     pushUndo();
-    setNotes(next);
+    setNotes(computeCandidates(g));
   }, [display, pushUndo]);
 
   const clear = useCallback(() => {
@@ -281,13 +287,15 @@ export function useSolver(): UseSolver {
     pushUndo();
     const step = engineHint(cloneGrid(full));
     if (step) {
-      setHistory((h) => [...h, step]);
-      setViewIndex(history.length + 1);
+      const nextHistory = [...history, step];
+      setHistory(nextHistory);
+      setViewIndex(nextHistory.length);
       setStuck(false);
+      setNotes(computeCandidates(replay(base, nextHistory)));
     } else {
       setStuck(true);
     }
-  }, [validate, full, history.length, pushUndo]);
+  }, [validate, full, history, base, pushUndo]);
 
   const solve = useCallback(() => {
     const v = validate();
@@ -311,9 +319,11 @@ export function useSolver(): UseSolver {
       requestAnimationFrame(() => {
         const next = cloneGrid(full);
         const result = solveAll(next);
-        setHistory((h) => [...h, ...result.steps]);
-        setViewIndex(history.length + result.steps.length);
+        const nextHistory = [...history, ...result.steps];
+        setHistory(nextHistory);
+        setViewIndex(nextHistory.length);
         setStuck(result.status !== 'solved' && !isSolved(next));
+        setNotes(computeCandidates(replay(base, nextHistory)));
         // Most puzzles solve in a few ms — too fast for the spinner to read
         // as "spinning" (just one static frame). Keep it visible for a
         // minimum stretch so it's an actual perceivable loading state.
@@ -322,13 +332,19 @@ export function useSolver(): UseSolver {
         else setSolving(false);
       });
     });
-  }, [validate, full, history.length, pushUndo]);
+  }, [validate, full, history, base, pushUndo]);
 
   const viewStep = useCallback(
     (n: number) => {
-      setViewIndex(Math.max(0, Math.min(n, history.length)));
+      const clamped = Math.max(0, Math.min(n, history.length));
+      setViewIndex(clamped);
+      // Scrubbing to a different step shows a different board — re-derive
+      // candidates for it rather than leaving stale notes from the last step.
+      if (history.length > 0) {
+        setNotes(computeCandidates(replay(base, [...history], clamped)));
+      }
     },
-    [history.length],
+    [history, base],
   );
 
   const check = useCallback(() => {
