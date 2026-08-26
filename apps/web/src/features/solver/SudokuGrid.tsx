@@ -128,7 +128,7 @@ const Cell = memo(function Cell({
       onClick={() => onSelect(index)}
       onDoubleClick={() => onDoubleClick(index)}
       className={[
-        'flex h-full w-full items-center justify-center text-[clamp(0.9rem,6.2cqw,3rem)] font-medium select-none',
+        'flex h-full w-full touch-manipulation items-center justify-center text-[clamp(0.9rem,6.2cqw,3rem)] font-medium select-none',
         'border-r border-b border-neutral-300 dark:border-neutral-700',
         bg,
         isUser

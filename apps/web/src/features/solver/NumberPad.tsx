@@ -18,7 +18,7 @@ export function NumberPad({ disabled, notesMode, onDigit, onErase }: NumberPadPr
           disabled={disabled}
           onClick={() => onDigit(d)}
           aria-label={notesMode ? `Toggle note ${d}` : `Enter ${d}`}
-          className="rounded-md border border-neutral-300 bg-white py-3 text-lg font-medium text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+          className="touch-manipulation rounded-md border border-neutral-300 bg-white py-3 text-lg font-medium text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
         >
           {d}
         </button>
@@ -28,7 +28,7 @@ export function NumberPad({ disabled, notesMode, onDigit, onErase }: NumberPadPr
         disabled={disabled}
         onClick={onErase}
         aria-label="Erase"
-        className="rounded-md border border-neutral-300 bg-white py-3 text-sm font-medium text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+        className="touch-manipulation rounded-md border border-neutral-300 bg-white py-3 text-sm font-medium text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
       >
         ⌫
       </button>
