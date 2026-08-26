@@ -36,7 +36,7 @@ Phase 1 goals:
 - Database: Postgres, via Drizzle ORM
 - Styling: Tailwind + shadcn/ui, dark mode support required
 - Keyboard shortcuts: TanStack Hotkeys (currently alpha)
-- Deployment: Render, paid tier
+- Deployment: Railway (web, api, and db all deployed there)
 - OCR (photo-upload grid detection): Tesseract, server-side, Express handles
   image preprocessing (grid detection/cropping) before OCR
 - **Solving engine runs entirely client-side** in the browser (TypeScript) —
@@ -251,10 +251,10 @@ We are now in Phase 2: building the actual website around the engine.
 
 Infra decisions for Phase 2 (decide first, before pages/features)
 Docker, full docker-compose for local dev: web (TanStack Start), api (Express), db (Postgres) all running together via one docker-compose up. Get hot-reload working correctly via proper volume mounts (bind-mount source, keep node_modules in a container-only volume) — this is a known trip-up, get it right from the start rather than patching it in later.
-Production deployment on Render: Docker for BOTH web and api, not native buildpacks. Reason: Render's native runtime cannot install OS-level packages (no apt/sudo/root), and the api service needs Tesseract, which requires exactly that. Since api must use Docker anyway, web uses Docker too for one consistent deployment strategy across the app rather than mixing native + Docker.
-Render deploys still trigger from the connected GitHub repo the same way native deploys would — Docker vs. native only changes how Render builds/runs the code after it arrives, not the git-based trigger flow.
-Env vars / secrets handling: delegated to your judgment. Reasonable defaults expected (e.g. .env + .env.example locally, docker-compose env passthrough, Render's environment variable dashboard for production secrets). Flag anything unusual / non-standard before implementing it, but routine choices don't need sign-off.
-Postgres hosting in production: delegated to your judgment — Render's managed Postgres vs. self-run Postgres container on Render. Pick whichever is the more standard/maintainable choice and explain the reasoning briefly when you do.
+Production deployment on Railway: web, api, and db (Postgres) are all deployed there. Docker for both web and api, not native buildpacks — the api service needs Tesseract, which requires OS-level packages.
+Railway deploys trigger from the connected GitHub repo — Docker only changes how Railway builds/runs the code after it arrives, not the git-based trigger flow.
+Env vars / secrets handling: delegated to your judgment. Reasonable defaults expected (e.g. .env + .env.example locally, docker-compose env passthrough, Railway's environment variable dashboard for production secrets). Flag anything unusual / non-standard before implementing it, but routine choices don't need sign-off.
+Postgres hosting in production: Railway's managed Postgres.
 Once infra is scaffolded
 
 Move into building actual pages/features per the existing plan already in this file: solver page, Learn section, auth, etc. The Learn curriculum (tiers/tactics) is still open for revision now that Phase 1 surfaced the real technique landscape (well beyond the original 29) — don't assume the original 29-tactic tier list is final without checking in first.
