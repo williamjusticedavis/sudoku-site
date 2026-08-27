@@ -32,7 +32,9 @@ Phase 1 goals:
 ## Tech stack (full project, for context — most of this is Phase 2)
 
 - Frontend: TanStack Start
-- Backend: Express (Node.js)
+- Backend: Express (Node.js) — scoped to auth + OCR only. Learn content
+  (tactics / tactic_puzzles) is NOT served by Express: it is read via TanStack
+  Start server loaders querying `@sudoku/db` directly.
 - Database: Postgres, via Drizzle ORM
 - Styling: Tailwind + shadcn/ui, dark mode support required
 - Keyboard shortcuts: TanStack Hotkeys (currently alpha)

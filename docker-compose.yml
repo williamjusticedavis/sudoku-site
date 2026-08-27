@@ -56,15 +56,23 @@ services:
       NODE_ENV: development
       VITE_API_URL: http://localhost:4000 # browser -> api (host-mapped port)
       API_INTERNAL_URL: http://api:4000 # SSR -> api (compose network)
+      # SSR route loaders read Learn content straight from Postgres via
+      # @sudoku/db; inside the compose network the db is reachable at host `db`.
+      # Overrides the localhost DATABASE_URL from .env (for host-run tooling).
+      DATABASE_URL: postgres://${POSTGRES_USER:-sudoku}:${POSTGRES_PASSWORD:-sudoku}@db:5432/${POSTGRES_DB:-sudoku}
       CHOKIDAR_USEPOLLING: 'true'
     ports:
       - '${WEB_PORT:-3000}:3000'
     depends_on:
-      - api
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
     volumes:
       - ./:/app
       - /app/node_modules
       - /app/apps/web/node_modules
+      - /app/packages/db/node_modules
       - /app/packages/engine/node_modules
     command: pnpm --filter @sudoku/web dev
 

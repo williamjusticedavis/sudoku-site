@@ -17,6 +17,13 @@ import { tactics } from './tactics.js';
 export interface HintStep {
   technique: string;
   explanation: string;
+  /**
+   * 81-char placed-digit string for the grid state at the moment this step
+   * fires. Present when easier moves had to be applied first to reach the
+   * position where the target tactic is visible; absent when the step fires
+   * directly on the puzzle's `gridState`. Lesson boards render this when set.
+   */
+  gridBefore?: string;
   highlights?: { role: string; cells: number[]; digits?: number[] }[];
   placements?: { cell: number; digit: number }[];
   eliminations?: { cell: number; digit: number }[];

@@ -221,7 +221,7 @@ function SolverPage() {
   }, [s.history.length]);
 
   return (
-    <main className="mx-auto max-w-[1800px] px-4 pt-6 pb-28 lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:pb-6">
+    <main className="mx-auto w-full max-w-[1800px] px-4 pt-6 pb-28 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden lg:pb-6">
       <header className="mb-6 lg:shrink-0">
         <h1 className="text-2xl font-bold">Sudoku Solver</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
