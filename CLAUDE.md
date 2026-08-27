@@ -18,7 +18,7 @@ Phase 1 goals:
 - Implement sudoku solving techniques as individual, testable functions
 - Port/adapt logic from `GillesArcas/sudosol` (Python, MIT licensed) as a
   reference — keep the MIT attribution notice in this repo once porting begins
-- Go well beyond the original 29-technique list (see below) — aim for the
+- Go well beyond the original teaching-tactic list (see below) — aim for the
   fuller technique set sudosol and similar solvers implement, since the engine
   needs to reliably solve _any_ valid grid a user submits, not just ones using
   the originally-planned teaching set
@@ -113,24 +113,96 @@ do NOT persist solves (see below).
 - Valid grids with multiple solutions → flag and notify (some techniques,
   like BUG+1, assume a unique solution and would misfire otherwise).
 
-## Original 29-technique list (Phase 1 starting point, not the ceiling)
+## Learn curriculum — tactics table (locked, 2026-08-27)
 
-Beginner: Last Free Cell, Last Possible Number, Cross-Hatching (Box/Row/Column),
-Naked Single, Hidden Single
+This is the finalized set of `tactics` rows for seeding, superseding the
+original planning list below it in git history. Tiers are based on real
+solving-experience findability, not just structural complexity (e.g.
+Jellyfish is much harder to spot than X-Wing despite being the same pattern
+at a different scale). `order_in_tier` is a placeholder — it's just the
+listing order below, never deliberately ranked — cheap to reorder later, not
+worth blocking on.
 
-Intermediate: Locked Candidates (Pointing/Claiming), Naked Pair/Triple/Quadruple,
-Hidden Pair/Triple, X-Wing, Skyscraper
+**Beginner**
 
-Advanced: 2-String Kite, Turbot Fish, Swordfish, XY-Wing, W-Wing, XYZ-Wing,
-Finned X-Wing, Finned Swordfish, Uniqueness (Unique Rectangle), BUG+1
+1. Last Free Cell
+2. Naked Single
+3. Cross-Hatching — _family: Hidden Single split_ (with Last Possible Number)
+4. Last Possible Number — _family: Hidden Single split_ (with Cross-Hatching)
 
-Master: Jellyfish, Finned Jellyfish, XY-Chain
+**Intermediate**
 
-(This tier list was based on real solving-experience findability, not just
-structural complexity — e.g. Jellyfish is much harder to spot than X-Wing
-despite being the same pattern at a different scale. It will likely be
-revised once the fuller technique set from Phase 1 is known — that's expected
-and fine.)
+1. Pointing — _family: Locked Candidates_ (with Claiming)
+2. Claiming — _family: Locked Candidates_ (with Pointing)
+3. Naked Pair
+4. Naked Triple
+5. Naked Quad
+6. Hidden Pair
+7. Hidden Triple
+8. Hidden Quad
+9. X-Wing
+10. Skyscraper
+
+**Advanced**
+
+1. 2-String Kite
+2. Turbot Fish
+3. Swordfish
+4. XY-Wing
+5. W-Wing
+6. XYZ-Wing
+7. Finned X-Wing
+8. Finned Swordfish
+9. Unique Rectangle
+10. BUG+1
+
+**Master**
+
+1. Jellyfish
+2. Finned Jellyfish
+3. XY-Chain
+4. Simple Coloring
+5. ALS-XZ
+
+**Technique families**: two or more tactics that are separate, fully
+independent lessons (own progress bar, own practice puzzles) but share the
+same underlying engine technique, and should get a shared visual
+grouping/label in the Learn tier layout. Known families: Locked Candidates
+(Pointing + Claiming — mirror-image logic), Hidden Single split
+(Cross-Hatching + Last Possible Number — see below). Exact grouping UI still
+open; decide when building the tier layout.
+
+**Hidden Single — retired as a standalone lesson.** Cross-Hatching and Last
+Possible Number are the two beginner-friendly ways of noticing the fact the
+engine formally calls a Hidden Single (a digit has exactly one legal cell
+left in a unit) — Cross-Hatching by active scanline elimination, Last
+Possible Number by reading candidates already pencilled in. A third lesson
+literally named "Hidden Single" would just re-teach the same concept a
+learner already has from one of the other two. Keep "Hidden Single" as
+vocabulary/context inside those two lessons' explanatory text (the "the
+engine formally calls both of these one thing" note) — no dedicated tactics
+row, no dedicated practice puzzles.
+
+**Explicitly excluded from the tactics table** (do not add without checking
+in first):
+
+- **WXYZ-Wing** — not implemented in the engine (confirmed 2026-08-27: no
+  `wxyzWing` function, no `wxyz-wing` technique id; puzzles tagged for it in
+  third-party fixtures solve via other techniques instead). Can't generate
+  curated step-by-step lesson content without building it first.
+- **Forcing-Chain** — the solver's depth-1 completeness backstop, not a
+  technique a human learns to spot the way the others are; closer to a
+  guided guess-and-check than an explainable pattern. Not curriculum
+  content.
+
+Cross-Hatching and Last Possible Number are teaching-only relabels of
+`hiddenSingle`, implemented in `packages/engine/src/teaching/` (kept
+separate from `packages/engine/src/techniques/`, which stays exclusively the
+solver's own technique set — see `TechniqueId` in `step.ts` and
+`crossHatching`/`lastPossibleNumber` in `teaching/teachingSingles.ts`). They
+are NOT registered in `solver.ts`'s `PATTERN_TECHNIQUES`/`TECHNIQUES` and
+never change the main solving page's step labels or priority order — they
+exist only to label the Learn section's curated lesson puzzles.
 
 ## Definitions worth preserving precisely
 
@@ -245,7 +317,7 @@ When spawning subagents (Agent/Task tool), the routing block is automatically in
   formatter with format-on-save and `prettier.requireConfig: true`, so
   VS Code formatting matches the pre-commit hook.
 
-Phase 1 is complete and committed (locally, not pushed). The solving engine in packages/engine solves any valid grid via real, explainable technique logic (29+ techniques plus Simple Coloring, ALS-XZ, and a depth-1 forcing-chain backstop), verified against an independent brute-force oracle across 1137+ puzzles, and personally hand-tested via the CLI by the project owner — including notation input/validation (parseGridWithCandidates, checkForMistakes, reconcileNotation). Do not reopen Phase 1 work unless explicitly asked. One known, deliberately-accepted limitation: technique priority order in solver.ts's TECHNIQUES list reflects implementation convenience (build order), not the finalized difficulty tiers below — this means the solver can occasionally apply a structurally-harder technique (e.g. XY-Wing) before an easier one (e.g. BUG+1) when both are valid on the same grid state. This is accepted as-is for now; do not "fix" it unprompted.
+Phase 1 is complete and committed (locally, not pushed). The solving engine in packages/engine solves any valid grid via real, explainable technique logic (28 pattern techniques, including Simple Coloring and ALS-XZ, plus a depth-1 forcing-chain backstop), verified against an independent brute-force oracle across 1137+ puzzles, and personally hand-tested via the CLI by the project owner — including notation input/validation (parseGridWithCandidates, checkForMistakes, reconcileNotation). Do not reopen Phase 1 work unless explicitly asked. One known, deliberately-accepted limitation: technique priority order in solver.ts's TECHNIQUES list reflects implementation convenience (build order), not the finalized difficulty tiers below — this means the solver can occasionally apply a structurally-harder technique (e.g. XY-Wing) before an easier one (e.g. BUG+1) when both are valid on the same grid state. This is accepted as-is for now; do not "fix" it unprompted.
 
 We are now in Phase 2: building the actual website around the engine.
 
@@ -257,4 +329,4 @@ Env vars / secrets handling: delegated to your judgment. Reasonable defaults exp
 Postgres hosting in production: Railway's managed Postgres.
 Once infra is scaffolded
 
-Move into building actual pages/features per the existing plan already in this file: solver page, Learn section, auth, etc. The Learn curriculum (tiers/tactics) is still open for revision now that Phase 1 surfaced the real technique landscape (well beyond the original 29) — don't assume the original 29-tactic tier list is final without checking in first.
+Move into building actual pages/features per the existing plan already in this file: solver page, Learn section, auth, etc. The Learn curriculum (tiers/tactics) is now locked — see "Learn curriculum — tactics table" above — after Phase 1 surfaced the real technique landscape beyond the original planning list.
