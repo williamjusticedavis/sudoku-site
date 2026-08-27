@@ -2,7 +2,10 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BOXES, COLS, PEERS, ROWS } from '@sudoku/engine';
 import { useSolver } from '../features/solver/useSolver.js';
-import { buildHighlightMap } from '../features/solver/highlights.js';
+import {
+  buildCandidateMarkers,
+  buildHighlightMap,
+} from '../features/solver/highlights.js';
 import { SudokuGrid, type Interaction } from '../features/solver/SudokuGrid.js';
 import { MobileStepper } from '../features/solver/MobileStepper.js';
 import { NumberPad } from '../features/solver/NumberPad.js';
@@ -46,6 +49,7 @@ function SolverPage() {
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const gridWrapperRef = useRef<HTMLDivElement>(null);
   const highlight = buildHighlightMap(s.currentStep);
+  const candidateMarkers = buildCandidateMarkers(s.currentStep);
   const panelOpen = s.history.length > 0 || s.mistakes !== null;
 
   // On mobile the step list sits below the grid, so jumping to a step (or
@@ -364,6 +368,7 @@ function SolverPage() {
               selected={s.selected}
               highlight={highlight}
               mistakeCells={mistakeCells}
+              candidateMarkers={candidateMarkers}
               interaction={interaction}
               highlightDigit={digitHighlight}
               editable={!s.solving}

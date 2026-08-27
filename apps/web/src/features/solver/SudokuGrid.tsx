@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, type KeyboardEvent } from 'react';
-import type { CellRole } from './highlights.js';
+import type { CandidateMarker, CellRole } from './highlights.js';
 
 /** Transient, user-interaction highlighting (independent of solve-step roles). */
 export type Interaction = 'match' | 'peer';
@@ -15,6 +15,8 @@ interface SudokuGridProps {
   highlight: Map<number, CellRole>;
   /** Cells flagged by the last mistake check. */
   mistakeCells: ReadonlySet<number>;
+  /** Per-cell candidate annotations for the current step (cell -> digit -> marker). */
+  candidateMarkers: Map<number, Map<number, CandidateMarker>>;
   /** Interaction highlights: same-digit ('match') and seen-cells ('peer'). */
   interaction: Map<number, Interaction>;
   /** Digit to emphasise inside pencil marks (from double-click), or null. */
@@ -45,18 +47,36 @@ const ROLE_BG: Record<CellRole, string> = {
   base: 'bg-sky-200 dark:bg-sky-800/70',
   cover: 'bg-indigo-200 dark:bg-indigo-800/70',
   fin: 'bg-amber-200 dark:bg-amber-700/70',
-  related: 'bg-neutral-200 dark:bg-neutral-700/60',
+  related: 'bg-violet-200 dark:bg-violet-900/50',
 };
 
 const MISTAKE_BG = 'bg-rose-300 dark:bg-rose-800';
+
+/** Circle-over-candidate marker: plain ring for 'marked', ring+slash (a "no" sign) for 'eliminated'. */
+function CandidateMark({ marker }: { marker: CandidateMarker }) {
+  const stroke = marker === 'eliminated' ? 'stroke-rose-500' : 'stroke-emerald-500';
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`pointer-events-none absolute inset-0 h-full w-full ${stroke}`}
+      fill="none"
+      strokeWidth="2"
+    >
+      <circle cx="12" cy="12" r="9" />
+      {marker === 'eliminated' && <line x1="5.6" y1="18.4" x2="18.4" y2="5.6" />}
+    </svg>
+  );
+}
 
 /** The 3x3 pencil-mark grid for an empty cell. */
 function NoteMarks({
   mask,
   highlightDigit,
+  markers,
 }: {
   mask: number;
   highlightDigit: number | null;
+  markers: Map<number, CandidateMarker> | undefined;
 }) {
   return (
     <div className="grid h-full w-full grid-cols-3 grid-rows-3 text-[clamp(0.5rem,2.2cqw,0.85rem)] leading-none font-normal text-neutral-500 dark:text-neutral-400">
@@ -64,14 +84,23 @@ function NoteMarks({
         const d = k + 1;
         const has = (mask & (1 << k)) !== 0;
         const hot = has && highlightDigit === d;
+        const marker = markers?.get(d);
+        // `notes` reflects candidates AFTER the current step applied, so an
+        // eliminated digit's bit is already cleared — show it anyway (dimmed)
+        // so the removal is visible, not just the cell it happened in.
+        const show = has || marker === 'eliminated';
         return (
-          <span
-            key={k}
-            className={`flex items-center justify-center ${
-              hot ? 'font-bold text-yellow-600 dark:text-yellow-300' : ''
-            }`}
-          >
-            {has ? d : ''}
+          <span key={k} className="relative flex items-center justify-center">
+            {marker && show && <CandidateMark marker={marker} />}
+            <span
+              className={[
+                'relative',
+                hot ? 'font-bold text-yellow-600 dark:text-yellow-300' : '',
+                marker === 'eliminated' && !has ? 'opacity-50' : '',
+              ].join(' ')}
+            >
+              {show ? d : ''}
+            </span>
           </span>
         );
       })}
@@ -89,6 +118,7 @@ interface CellProps {
   isSelected: boolean;
   isMistake: boolean;
   highlightDigit: number | null;
+  markers: Map<number, CandidateMarker> | undefined;
   onSelect(index: number): void;
   onDoubleClick(index: number): void;
 }
@@ -104,6 +134,7 @@ const Cell = memo(function Cell({
   isSelected,
   isMistake,
   highlightDigit,
+  markers,
   onSelect,
   onDoubleClick,
 }: CellProps) {
@@ -149,8 +180,8 @@ const Cell = memo(function Cell({
     >
       {digit !== 0 ? (
         digit
-      ) : noteMask !== 0 ? (
-        <NoteMarks mask={noteMask} highlightDigit={highlightDigit} />
+      ) : noteMask !== 0 || (markers && markers.size > 0) ? (
+        <NoteMarks mask={noteMask} highlightDigit={highlightDigit} markers={markers} />
       ) : (
         ''
       )}
@@ -165,6 +196,7 @@ export function SudokuGrid({
   selected,
   highlight,
   mistakeCells,
+  candidateMarkers,
   interaction,
   highlightDigit,
   editable,
@@ -279,6 +311,7 @@ export function SudokuGrid({
           isSelected={selected === i}
           isMistake={mistakeCells.has(i)}
           highlightDigit={highlightDigit}
+          markers={candidateMarkers.get(i)}
           onSelect={handleCellClick}
           onDoubleClick={handleCellDoubleClick}
         />
