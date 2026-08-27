@@ -10,13 +10,7 @@
  * fields are `readonly` — nothing may mutate a Step after creation.
  */
 
-import {
-  bit,
-  cellName,
-  type CellIndex,
-  type Digit,
-  type Grid,
-} from './grid.js';
+import { bit, cellName, type CellIndex, type Digit, type Grid } from './grid.js';
 import { PEERS } from './units.js';
 
 /**
@@ -30,6 +24,8 @@ export type TechniqueId =
   | 'last-free-cell'
   | 'naked-single'
   | 'hidden-single'
+  | 'cross-hatching'
+  | 'last-possible-number'
   | 'pointing'
   | 'claiming'
   | 'naked-pair'
@@ -86,12 +82,7 @@ export interface Elimination {
  *  - `related`        — supporting / seeing / link cells that explain the logic.
  */
 export type HighlightRole =
-  | 'base'
-  | 'cover'
-  | 'fin'
-  | 'placement'
-  | 'elimination'
-  | 'related';
+  'base' | 'cover' | 'fin' | 'placement' | 'elimination' | 'related';
 
 /** A set of cells sharing one visual role, plus the digits it concerns. */
 export interface HighlightGroup {

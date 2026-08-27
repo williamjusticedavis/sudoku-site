@@ -24,3 +24,7 @@ export * from './techniques/uniqueness.js';
 export * from './techniques/xychain.js';
 export * from './techniques/als.js';
 export * from './techniques/forcing.js';
+// Teaching-only relabels for the Learn section — not part of the solver's
+// own technique set (see `techniques/` above), never registered in
+// solver.TECHNIQUES, never change the main solving page's step labels.
+export * from './teaching/teachingSingles.js';
