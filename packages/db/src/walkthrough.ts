@@ -12,9 +12,12 @@
  *                     the real ones so the last button reads "Apply"
  *
  * Narration is templated per technique-role-family, not hand-written per puzzle
- * (6 shared templates cover 21 of the 28 tactics; the rest get a small
- * bespoke template each). The cells and digits in every beat come straight
- * from the engine Step — only the sentence scaffolding is templated.
+ * (5 shared templates cover 18 of the 28 tactics — singles, naked/hidden
+ * subsets, the fish family, and XY-/XYZ-Wing; the other 10 each get a small
+ * bespoke template, including Skyscraper/2-String Kite/Turbot Fish, which
+ * used to share one generic "chain" template before each got its own
+ * strong/weak-link-aware narration). The cells and digits in every beat come
+ * straight from the engine Step — only the sentence scaffolding is templated.
  */
 import {
   cellName,

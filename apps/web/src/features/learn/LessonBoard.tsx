@@ -17,7 +17,12 @@ const INTERACTION_BG: Record<Interaction, string> = {
   peer: 'bg-neutral-300/70 dark:bg-neutral-700/70',
 };
 
-/** Cell backgrounds per solve-step role — kept in step with the solver grid. */
+/** Cell backgrounds per solve-step role. Started identical to the solver
+ * grid's own `ROLE_BG` (`features/solver/SudokuGrid.tsx`); `base`/`related`
+ * were deliberately swapped here (base=purple, related=light blue) during
+ * the Learn lesson polish pass for consistency across every lesson's own
+ * base/related pairing — the solver grid's copy was intentionally left
+ * unswapped, so the two now diverge on purpose. */
 const ROLE_BG: Record<CellRole, string> = {
   placement: 'bg-emerald-200 dark:bg-emerald-800/70',
   elimination: 'bg-rose-200 dark:bg-rose-800/70',

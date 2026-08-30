@@ -2,8 +2,11 @@
  * Seed `tactics` and `tactic_puzzles` for the Learn section.
  *
  * Curriculum (tier / order / name / family) is transcribed from the locked
- * table in the repo-root CLAUDE.md. Puzzle grid strings are the mined +
- * uniqueness-verified set from the Phase 2 `tactic-examples.md` working note.
+ * table in the repo-root CLAUDE.md. Puzzle grid strings started from the
+ * Phase 2 `tactic-examples.md` working note (no longer in the repo), but
+ * most have since been replaced — see the per-tactic comments below and the
+ * `mine-*.ts` scripts, each a reusable, uniqueness/cleanliness-checked miner
+ * for one tactic's example puzzles.
  *
  * `step_data` is NOT hand-written: for every puzzle the target technique is run
  * by the real engine on that exact grid and its `Step` (description, role-
@@ -337,10 +340,12 @@ const CURRICULUM: CurriculumRow[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Puzzle strings — from tactic-examples.md (81 chars, 0 = blank). First entry
-// per tactic becomes the teaching example; the rest are practice puzzles.
-// Puzzles flagged there as "fires-only, not proven necessary" are listed last
-// so they are never the teaching example.
+// Puzzle strings — plain 81-char grids (0 = blank), originally sourced from
+// tactic-examples.md (no longer in the repo) but mostly replaced since via
+// the mine-*.ts scripts (see each tactic's own comment below for its
+// history). First entry per tactic becomes the teaching example; the rest
+// are practice puzzles. A puzzle flagged "fires-only, not proven necessary"
+// is listed last so it's never the teaching example.
 //
 // An entry is normally just that plain string. It can instead be a
 // `{ gridState, firedAt }` object for a puzzle authored directly from an
@@ -674,9 +679,10 @@ type Fired = { step: Step; gridBefore: string | undefined };
  * it fired on. `gridBefore` is undefined only when the target fired on the raw
  * puzzle (no lead-up needed).
  *
- * Puzzles are chosen (see `tactic-examples.md` and the `mine-*.ts` scripts) so
- * this position is the natural one for the technique — for the advanced tactics
- * that means no strictly-simpler move is left unplayed there. */
+ * Puzzles are chosen (see the `mine-*.ts` scripts) so this position is the
+ * natural one for the technique — no strictly-simpler move left unplayed
+ * there, and (for several tactics) no easier technique independently
+ * justifying the exact same elimination either. */
 function fireTarget(puzzle: string, slug: string, target: Technique): Fired | null {
   const excl = excluded(slug, target);
   const leadUp = TECHNIQUES.filter((t) => !excl.includes(t));
