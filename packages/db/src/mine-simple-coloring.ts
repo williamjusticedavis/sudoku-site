@@ -26,6 +26,29 @@ import {
   PATTERN_TECHNIQUES,
   TECHNIQUES,
   simpleColoring,
+  lastFreeCell,
+  nakedSingle,
+  hiddenSingle,
+  pointing,
+  claiming,
+  nakedPair,
+  nakedTriple,
+  nakedQuad,
+  hiddenPair,
+  hiddenTriple,
+  hiddenQuad,
+  xWing,
+  skyscraper,
+  twoStringKite,
+  turbotFish,
+  swordfish,
+  xyWing,
+  wWing,
+  xyzWing,
+  finnedXWing,
+  finnedSwordfish,
+  uniqueRectangle,
+  bug1,
 } from '@sudoku/engine';
 
 const SOLUTIONS = readFileSync(
@@ -109,6 +132,38 @@ interface Candidate {
 // pattern set only (no backstop), matching the puzzle-set's original criterion.
 const CAPTURE_LEADUP = TECHNIQUES.filter((t) => t !== simpleColoring);
 const NECESSITY_SET = PATTERN_TECHNIQUES.filter((t) => t !== simpleColoring);
+// Every named technique strictly BELOW Master tier (per CLAUDE.md's locked
+// curriculum) — that's the "would a learner spot an easier move here" bar.
+// Deliberately excludes Simple Coloring's own master-tier siblings (Jellyfish,
+// Finned Jellyfish, XY-Chain, ALS-XZ): those coexisting is normal in a
+// complex late-game position, not a sign the coloring chain is secretly
+// redundant. Also excludes the forcing-chain backstop (not curriculum
+// content, see CLAUDE.md) for the same reason as the other mine-*.ts scripts.
+const EASIER_CHECK = [
+  lastFreeCell,
+  nakedSingle,
+  hiddenSingle,
+  pointing,
+  claiming,
+  nakedPair,
+  nakedTriple,
+  nakedQuad,
+  hiddenPair,
+  hiddenTriple,
+  hiddenQuad,
+  xWing,
+  skyscraper,
+  twoStringKite,
+  turbotFish,
+  swordfish,
+  xyWing,
+  wWing,
+  xyzWing,
+  finnedXWing,
+  finnedSwordfish,
+  uniqueRectangle,
+  bug1,
+];
 
 /** Reproduce seed.ts's `fireTarget`: advance with the solver minus Simple
  * Coloring until `simpleColoring` itself fires, and measure THAT step — the one
@@ -122,12 +177,39 @@ function evaluate(puzzle: string): Candidate | null {
     if (!hint(g, CAPTURE_LEADUP)) break;
   }
   if (!step) return null;
+  // Reject a naked/hidden single sitting unplayed anywhere — those are
+  // trivially obvious regardless of where they are, so they're a genuine
+  // distraction no matter what the lesson is highlighting.
+  if (nakedSingle(g) !== null || hiddenSingle(g) !== null) return null;
+  // Beyond that: at any real mid-solve position, OTHER unrelated valid
+  // moves existing elsewhere on the board is normal, not a distraction — a
+  // learner focused on the highlighted chain wouldn't notice an unrelated
+  // naked pair three rows away. What actually makes an example degenerate
+  // (confirmed on the original 3 puzzles, which had a technique reproducing
+  // the EXACT SAME elimination Claiming/2-String-Kite-style) is a simpler
+  // technique justifying the identical (cell, digit) removal. Reject only
+  // on that overlap.
+  const targets = new Set(step.eliminations.map((e) => `${e.cell}:${e.digit}`));
+  for (const t of EASIER_CHECK) {
+    const other = t(g);
+    if (!other) continue;
+    for (const e of other.eliminations) {
+      if (targets.has(`${e.cell}:${e.digit}`)) return null;
+    }
+  }
 
   const cells = new Set<number>();
   for (const h of step.highlights) {
     if (h.role === 'base' || h.role === 'related') for (const c of h.cells) cells.add(c);
   }
   const chain = cells.size;
+  // Reject a chain that collapses into an X-Wing-shaped rectangle — every
+  // coloured cell confined to just 2 rows AND 2 columns reads as "this is
+  // secretly an X-Wing", not a genuine coloring chain, however many cells
+  // it has.
+  const rows = new Set([...cells].map((c) => Math.floor(c / 9)));
+  const cols = new Set([...cells].map((c) => c % 9));
+  if (rows.size <= 2 && cols.size <= 2) return null;
 
   const necessary = solveAll(parseGrid(puzzle), NECESSITY_SET).status !== 'solved';
 
@@ -142,9 +224,9 @@ function evaluate(puzzle: string): Candidate | null {
   };
 }
 
-const MIN_CHAIN = 8;
+const MIN_CHAIN = 3;
 const TARGET_NEC_CHAIN = 10; // keep hunting until 3 necessity-verified reach this
-const TIME_BUDGET_MS = 150_000;
+const TIME_BUDGET_MS = 300_000;
 const start = Date.now();
 const found: Candidate[] = [];
 let tried = 0;

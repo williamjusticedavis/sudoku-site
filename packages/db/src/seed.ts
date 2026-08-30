@@ -24,11 +24,14 @@ import {
   cloneGrid,
   hint,
   parseGrid,
+  parseGridWithCandidates,
   serializeGrid,
   serializeGridWithCandidates,
   hasUniqueSolution,
+  solve,
   solveAll,
   TECHNIQUES,
+  type Grid,
   type Step,
   type Technique,
   bug1,
@@ -338,8 +341,22 @@ const CURRICULUM: CurriculumRow[] = [
 // per tactic becomes the teaching example; the rest are practice puzzles.
 // Puzzles flagged there as "fires-only, not proven necessary" are listed last
 // so they are never the teaching example.
-// ---------------------------------------------------------------------------
-const PUZZLES: Record<string, [string, string, string]> = {
+//
+// An entry is normally just that plain string. It can instead be a
+// `{ gridState, firedAt }` object for a puzzle authored directly from an
+// already-reduced position (e.g. captured mid-solve from the real solver)
+// rather than a raw clue set: `gridState` is a short, schema-legal (<=81
+// char) *placed-digit-only* stand-in stored in the DB and used only for
+// `hasUniqueSolution`/`solutionState` (the walkthrough always displays
+// `gridBefore`, never `gridState`, once it's set — see `boardGrid` in
+// `$slug.tsx` — so this stand-in is otherwise inert); `firedAt` is the exact
+// bracket-candidate state (arbitrary length, lives in the JSONB step data,
+// no schema limit) the target technique fires on, used as-is instead of
+// re-deriving a position via the lead-up search — which would very likely
+// walk a different, unrelated path from a placed-digit-only stand-in and
+// fire on a different instance of the technique entirely.
+type PuzzleEntry = string | { gridState: string; firedAt: string };
+const PUZZLES: Record<string, [PuzzleEntry, PuzzleEntry, PuzzleEntry]> = {
   'last-free-cell': [
     '000000000000000001000002030000003020001040000005000060030000004070080009620007000',
     '000000000000000001000002030000003020004000050006010000030000006070080009520700000',
@@ -514,36 +531,77 @@ const PUZZLES: Record<string, [string, string, string]> = {
     '000000001000002003002040000000000450060000000310007000000600000005080200100300000',
   ],
   jellyfish: [
-    '000000000000001023045060000000000007000408000800003010000000500000500006200070000',
+    // Original fired while a hidden single sat unplayed at r2c5 — replaced
+    // via mine-jellyfish.ts (no naked/hidden single, fuller 13-cell base).
+    '601090000400000600080000040004050370020000400095204000000061780000000003000705009',
     // fires-only, not proven necessary
     '000000000000000001002034000000000350000600200070180000000500002030000400680000000',
     // fires-only, not proven necessary
     '000000000000000012003004000000003005006000400070020001000050000200010000804000300',
   ],
   'finned-jellyfish': [
-    '000000000000000001002034050000006007003000000051000000000810030070300000600000200',
-    '000000000000000012003045000000000300004000500010620000000200000005007000080100090',
-    '000000000000000012003045000000000300004000500010620000000200000005007000800100090',
+    // All three originals had a hidden single sitting unplayed at the fired
+    // position, and puzzles 2/3 were near-duplicates (same rows/cols/fin
+    // shape, one clue moved a cell). Replaced via mine-finned-jellyfish.ts;
+    // puzzles 1 and 3 also required every base line to carry >=2 cells —
+    // the first pass had a base line with just 1, reading as "only 3 real
+    // sides", unlike puzzle 2's even 3-per-row shape (kept as-is).
+    '000060730056400008080000000061007004020000070000900600000080000000720901305000000',
+    '028400301400000000000690000012009800000003009007040500050008100100200030000000700',
+    '830020000009100000002050360000408600040092000000000200003009500080030097600000800',
   ],
   // Re-mined 2026-08-27 (see mine-xy-chain.ts). The originals fired on a
   // degenerate 2-cell "chain" (a single bivalue link). All three below are
   // necessity-verified with a 5-8 cell chain that spans >=3 rows and >=3
   // columns, so it reads as a chain rather than a locked-candidate move.
   'xy-chain': [
-    '600800004000076002070000030060009000000023010003000400014300070005060000000080059',
+    // Puzzles 1 and 3 originally fired with a naked single AND a hidden
+    // single sitting unplayed at the fired position — replaced via
+    // mine-xy-chain.ts's added cleanliness check. Puzzle 2 was already
+    // clean, kept as-is.
+    '007049120000008003090001000004000601025000400000003000006070000040025009700000000',
     '070090030010050470003001000800000900006000300000700026400000009790600800030000200',
-    '000000900003140000205000040009710000010300000350002007100208000000030800060005010',
+    '010302506504000030000000000900087050000060000000900071060000902090000010800005000',
   ],
-  // Re-mined 2026-08-27 (see mine-simple-coloring.ts). The originals fired via a
-  // degenerate 2-cell colour component — visually identical to Pointing/Claiming.
-  // These all fire on an 8-12 cell coloured cluster (~7-11 conjugate links).
-  // #1 and #2 are necessity-verified; #3 is fires-only (like hidden-quad #3 and
-  // jellyfish #2/#3) — an exhaustive symmetry-transform search over 14k puzzles
-  // turned up no third necessity-verified case with a chain this long.
+  // Re-mined again 2026-08-30: all 3 of the previous set had a hidden single
+  // (puzzle 3 also a naked single) sitting unplayed at the fired position —
+  // added that cleanliness check to mine-simple-coloring.ts. Clean +
+  // necessity-verified + chain>=6 turned out very rare (one hit in ~65k
+  // random puzzles); puzzle 2 relaxes to chain 5, still clean and
+  // necessity-verified, just a shorter chain. Puzzle 3's first replacement
+  // fired on a degenerate 4-cell chain confined to 2 rows/2 cols — literally
+  // an X-Wing shape wearing coloring's clothes — so a second mining pass
+  // added a rows<=2-and-cols<=2 rejection to the script.
+  //
+  // Puzzle 1 replaced again: even necessity-verified + spread + no-single
+  // wasn't a strong enough bar — the owner found (via the live solver, real
+  // step order) that both remaining picks had a technique reproducing the
+  // EXACT SAME elimination (Claiming/2-String-Kite on the same cell+digit)
+  // — genuinely redundant, not just "some other unrelated move exists
+  // elsewhere on the board" (which turns out to be completely normal at any
+  // real mid-solve position and isn't itself a problem). Fixed the miner's
+  // check to reject only on that same-elimination overlap, and replaced
+  // puzzle 1 with the owner's own found example (captured mid-solve from
+  // the real solver's natural step order, hence the bracket-candidate
+  // notation instead of a raw clue string — see `parseBoard` above).
   'simple-coloring': [
-    '030007000040150200001006008010005080080010000065900032000002401050001000000370005',
-    '529601000000500490000000000100000340008000500600002080960000000005000002003057000',
-    '007090003000401500200000600609500000080064000000000200805300010010000009030002006',
+    {
+      // Placed-digit-only stand-in (this mid-solve position's clues as if
+      // it were its own puzzle) — schema-legal length, only used for
+      // hasUniqueSolution/solutionState. The walkthrough itself uses
+      // `firedAt` below, unchanged.
+      gridState:
+        '806012930071005006203060014765100309180000060309006100600070001510200673037651000',
+      firedAt:
+        '8 [45] 6 [47] 1 2 9 3 [57] [49] 7 1 [349] [3489] 5 [28] [28] 6 2 [59] 3 [89] 6 [789] [57] 1 4 7 6 5 1 [248] [48] 3 [248] 9 1 8 [24] [359] [39] [379] [457] 6 [25] 3 [24] 9 [57] [248] 6 1 [24578] [2578] 6 [29] [248] [348] 7 [348] [459] [459] 1 5 1 [48] 2 [489] [489] 6 7 3 [49] 3 7 6 5 1 [48] [248] [28]',
+    },
+    '840900000009600000000004070005209610000100040100080005700002300003060007500000020',
+    // Puzzle 3 was, it turns out, never actually replaced despite the
+    // comment above claiming otherwise — still the original degenerate
+    // example, where Claiming reproduces the exact same elimination
+    // (r8c5/r9c5 confining 7 to box 8 → remove from the rest, same cell the
+    // coloring chain targets). Replaced via the corrected overlap check.
+    '030060020090005070087092000008010000009503600000000407053026040002000010000050300',
   ],
   // Re-mined 2026-08-27 (see mine-als-xz.ts). Earlier batches read as a naked
   // quint (a 4-cell ALS one cell short of a locked subset in its unit). All
@@ -554,7 +612,13 @@ const PUZZLES: Record<string, [string, string, string]> = {
   // owner liked: a spread 3-cell row ALS + a 4-cell box ALS.
   'als-xz': [
     '070840000900007300000060000020108060006004080007000500010090024000006007200000000',
-    '000000005070210000090000401007300000800700003600005040060008200050003000300900100',
+    // Puzzle 2 originally fired with a technique reproducing the EXACT SAME
+    // elimination (r5c3=1, also independently justified by an X-Wing and a
+    // Finned Swordfish) — the same "genuinely redundant" bug found on
+    // Simple Coloring's puzzles. mine-als-xz.ts's SIMPLER-only check never
+    // covered fish/wings/locked-candidates, so it slipped through; added
+    // the same same-elimination overlap check used for Simple Coloring.
+    '004050000000030021290000007060000000700300090058090070003080005000000002006021080',
     '020001800460000003050600007000002400000000082200947000800000050005308010000070000',
   ],
 };
@@ -593,6 +657,16 @@ function excluded(slug: string, target: Technique): Technique[] {
   return [target];
 }
 
+/** A PUZZLES entry is normally a plain 81-char digit string, but can also be
+ * the bracket-candidate notation from `serializeGridWithCandidates` — for a
+ * puzzle authored directly from an already-reduced position (e.g. captured
+ * from a real solve) rather than a raw clue set the lead-up has to reduce
+ * itself. Mirrors the web app's `parseLessonGrid` / `walkthrough.ts`'s own
+ * `parseBoard`. */
+function parseBoard(board: string): Grid {
+  return /[[\s]/.test(board) ? parseGridWithCandidates(board) : parseGrid(board);
+}
+
 type Fired = { step: Step; gridBefore: string | undefined };
 
 /** Capture `target`'s Step on `puzzle`: apply lead-up moves (the full solver
@@ -606,7 +680,7 @@ type Fired = { step: Step; gridBefore: string | undefined };
 function fireTarget(puzzle: string, slug: string, target: Technique): Fired | null {
   const excl = excluded(slug, target);
   const leadUp = TECHNIQUES.filter((t) => !excl.includes(t));
-  const grid = parseGrid(puzzle);
+  const grid = parseBoard(puzzle);
   for (let i = 0; i < 400; i++) {
     const step = target(grid);
     if (step) {
@@ -620,12 +694,28 @@ function fireTarget(puzzle: string, slug: string, target: Technique): Fired | nu
   return null;
 }
 
-function buildStepData(slug: string, puzzle: string): HintStep[] {
+function buildStepData(slug: string, entry: PuzzleEntry): HintStep[] {
   const row = CURRICULUM.find((r) => r.slug === slug)!;
-  const attempt = fireTarget(puzzle, slug, row.technique);
+  // A `{ gridState, firedAt }` entry already knows its exact fired
+  // position — evaluate the target directly there instead of running the
+  // lead-up search from `gridState` (a placed-digit-only stand-in that
+  // would very likely walk a different, unrelated path to a different
+  // instance of the technique entirely).
+  if (typeof entry !== 'string') {
+    const grid = parseBoard(entry.firedAt);
+    const step = row.technique(grid);
+    if (!step) {
+      throw new Error(
+        `[seed] ${slug}: target technique never fired on the given firedAt state — ` +
+          `puzzle/tactic mismatch, needs a replacement grid.`,
+      );
+    }
+    return buildWalkthrough(step, slug, entry.firedAt, entry.firedAt);
+  }
+  const attempt = fireTarget(entry, slug, row.technique);
   if (!attempt) {
     throw new Error(
-      `[seed] ${slug}: target technique never fired on ${puzzle} — ` +
+      `[seed] ${slug}: target technique never fired on ${entry} — ` +
         `puzzle/tactic mismatch, needs a replacement grid.`,
     );
   }
@@ -633,17 +723,28 @@ function buildStepData(slug: string, puzzle: string): HintStep[] {
     attempt.step,
     slug,
     attempt.gridBefore,
-    attempt.gridBefore ?? puzzle,
+    attempt.gridBefore ?? entry,
   );
 }
 
 function solutionFor(puzzle: string): string {
-  const grid = cloneGrid(parseGrid(puzzle));
+  const grid = cloneGrid(parseBoard(puzzle));
   const result = solveAll(grid);
-  if (result.status !== 'solved') {
+  if (result.status === 'solved') {
+    return serializeGrid(grid).replaceAll('.', '0');
+  }
+  // The technique solver (even with its forcing-chain backstop) can get
+  // stuck on a position mid-solve that the ORIGINAL raw puzzle would have
+  // reached and resolved via a longer chain earlier in the solve — this
+  // happens for a puzzle authored directly from an already-reduced position
+  // (bracket notation; see `parseBoard`) rather than a raw clue set the
+  // lead-up derives itself. Fall back to the brute-force oracle `solve`
+  // (same one `hasUniqueSolution` trusts) rather than failing outright.
+  const brute = solve(cloneGrid(parseBoard(puzzle)));
+  if (!brute) {
     throw new Error(`[seed] could not solve ${puzzle} (status: ${result.status}).`);
   }
-  return serializeGrid(grid).replaceAll('.', '0');
+  return serializeGrid(brute).replaceAll('.', '0');
 }
 
 // ---------------------------------------------------------------------------
@@ -698,13 +799,14 @@ async function main(): Promise<void> {
     await db.delete(tacticPuzzles).where(eq(tacticPuzzles.tacticId, tactic!.id));
 
     for (let p = 0; p < grids.length; p++) {
-      const gridState = grids[p]!;
-      if (!hasUniqueSolution(parseGrid(gridState))) {
+      const entry = grids[p]!;
+      const gridState = typeof entry === 'string' ? entry : entry.gridState;
+      if (!hasUniqueSolution(parseBoard(gridState))) {
         throw new Error(
           `[seed] ${row.slug} puzzle ${p} has no unique solution: ${gridState}`,
         );
       }
-      const stepData = buildStepData(row.slug, gridState);
+      const stepData = buildStepData(row.slug, entry);
       await db.insert(tacticPuzzles).values({
         tacticId: tactic!.id,
         gridState,

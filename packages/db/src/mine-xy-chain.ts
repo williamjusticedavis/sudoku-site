@@ -25,6 +25,8 @@ import {
   PATTERN_TECHNIQUES,
   TECHNIQUES,
   xyChain,
+  nakedSingle,
+  hiddenSingle,
 } from '@sudoku/engine';
 
 const SOLUTIONS = readFileSync(
@@ -121,6 +123,9 @@ function evaluate(puzzle: string): Candidate | null {
     if (!hint(g, CAPTURE_LEADUP)) break;
   }
   if (!step) return null;
+  // Reject a fired position with a naked/hidden single sitting unplayed —
+  // a learner who spots that solves it without ever needing the chain.
+  if (nakedSingle(g) !== null || hiddenSingle(g) !== null) return null;
 
   const path = step.highlights.find((h) => h.role === 'base')?.cells ?? [];
   const chain = path.length;

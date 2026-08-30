@@ -383,15 +383,15 @@ function fishTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const baseNums = baseVals.map((v) => v + 1);
   const coverNums = coverVals.map((v) => v + 1);
 
-  // X-Wing/Swordfish, plain OR finned: outline every base line from beat 1
-  // and wash the cover cells red as soon as they're named — same "mark
-  // everything in play, not just what ends up eliminated" convention as the
-  // naked/hidden subset and locked-candidates templates. Finned narrows the
-  // wash to cover cells that also see the fin (the only ones the weaker
-  // deduction actually covers). X-Wing only (n===2) additionally draws the
-  // pattern's 4 corners as a literal green X — Swordfish's 3-line shape
-  // doesn't reduce to a clean X, so it skips that part.
-  if (n === 2 || n === 3) {
+  // X-Wing/Swordfish/Jellyfish, plain OR finned: outline every base line
+  // from beat 1 and wash the cover cells red as soon as they're named — same
+  // "mark everything in play, not just what ends up eliminated" convention
+  // as the naked/hidden subset and locked-candidates templates. Finned
+  // narrows the wash to cover cells that also see the fin (the only ones the
+  // weaker deduction actually covers). X-Wing only (n===2) additionally
+  // draws the pattern's 4 corners as a literal green X — Swordfish/Jellyfish's
+  // 3-/4-line shape doesn't reduce to a clean X, so they skip that part.
+  if (n === 2 || n === 3 || n === 4) {
     const outlineGroups = baseVals.map((v) => ({
       role: 'outline-unit',
       cells: lineCellsOf(baseIsRows ? v * 9 : v, baseIsRows ? 'row' : 'col'),
@@ -444,8 +444,8 @@ function fishTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
     } else {
       introText =
         fin.length > 0
-          ? `Across ${baseKind} ${digits(baseNums)}, digit ${d} is pinned to just ${n} ${coverKind}: ${digits(coverNums)} — plus one extra candidate at the fin, ${cells(fin)}. That's a Swordfish on ${d}, with a fin.`
-          : `Across ${baseKind} ${digits(baseNums)}, digit ${d} is pinned to just ${n} ${coverKind}: ${digits(coverNums)}. That's a Swordfish on ${d}.`;
+          ? `Across ${baseKind} ${digits(baseNums)}, digit ${d} is pinned to just ${n} ${coverKind}: ${digits(coverNums)} — plus one extra candidate at the fin, ${cells(fin)}. That's ${aSize} on ${d}, with a fin.`
+          : `Across ${baseKind} ${digits(baseNums)}, digit ${d} is pinned to just ${n} ${coverKind}: ${digits(coverNums)}. That's ${aSize} on ${d}.`;
     }
 
     const beat3Text =
@@ -941,40 +941,62 @@ function wingPairTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   ];
 }
 
-/** XY-Chain: an alternating chain of bivalue cells. The two ends get their own
- * colour (`related`) from the first beat — they're what the elimination hangs
- * on — while the links between them stay `base`. */
-function xyChainTemplate(step: Step): Beat[] {
+/** XY-Chain: an alternating chain of bivalue cells. The two ends get their
+ * own colour (`base`, purple) from the first beat — they're what the
+ * elimination hangs on — while the links between them stay `related` (light
+ * blue). Deliberately the reverse of every other bespoke template's
+ * base/related split: here the *ends* are the star of the show, not the
+ * connecting links, so the ends get the more prominent colour. Each hop
+ * between consecutive cells is a weak link (they see each other and share
+ * the link digit — sharing a unit is exactly "not both", not a forced
+ * either/or), drawn dashed; a bivalue cell's own strong link (its two
+ * candidates) is implicit in it being circled, not drawn as a separate line.
+ * Elimination beat washes every empty cell that sees both ends red, not
+ * just the ones actually losing the candidate. */
+function xyChainTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const path = groupCells(step, 'base');
   const d = groupDigits(step, 'base')[0] ?? elimDigit(step);
   const ends: [number, number] = [path[0]!, path[path.length - 1]!];
   const links = path.slice(1, -1);
   const elim = elimCells(step);
 
-  const linkG = { role: 'base', cells: [...links], digits: [d] };
-  const endG = { role: 'related', cells: [...ends], digits: [d] };
-  const elimG = { role: 'elimination', cells: [...elim], digits: [d] };
+  const linkG = { role: 'related', cells: [...links], digits: [d] };
+  const endG = { role: 'base', cells: [...ends], digits: [d] };
+  const pathSet = new Set(path);
+  const wash = {
+    role: 'elimination',
+    cells: commonPeers(ends).filter((c) => grid.placed[c] === 0 && !pathSet.has(c)),
+  };
+  const xLines = path.slice(0, -1).map((c, i) => ({
+    from: c,
+    to: path[i + 1]!,
+    style: 'dashed' as const,
+  }));
 
   return [
     {
       text: `${cells(path)} form a chain of bivalue cells — each link's value forces the next. Its two ends, ${cells(ends)}, are picked out separately.`,
       roles: [],
       groups: [linkG, endG],
+      xLines,
     },
     {
       text: `Follow it from either end: if ${cellName(ends[0])} isn't ${d}, the links march along and make ${cellName(ends[1])} be ${d} — and vice versa. One end is always ${d}.`,
       roles: [],
       groups: [linkG, endG],
+      xLines,
     },
     {
       text: `So any cell that sees both ends, ${cells(ends)}, can't be ${d}.`,
       roles: [],
-      groups: [linkG, endG, elimG],
+      groups: [linkG, endG, wash],
+      xLines,
     },
     {
       text: `Remove ${d} from ${cells(elim)}.`,
       roles: [],
-      groups: [linkG, endG, elimG],
+      groups: [linkG, endG, wash],
+      xLines,
     },
   ];
 }

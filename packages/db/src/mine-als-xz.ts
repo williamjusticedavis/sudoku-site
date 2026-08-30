@@ -34,6 +34,21 @@ import {
   hiddenPair,
   hiddenTriple,
   hiddenQuad,
+  hiddenSingle,
+  pointing,
+  claiming,
+  xWing,
+  skyscraper,
+  twoStringKite,
+  turbotFish,
+  swordfish,
+  xyWing,
+  wWing,
+  xyzWing,
+  finnedXWing,
+  finnedSwordfish,
+  uniqueRectangle,
+  bug1,
 } from '@sudoku/engine';
 
 const SOLUTIONS = readFileSync(
@@ -168,6 +183,29 @@ const SIMPLER = [
   hiddenTriple,
   hiddenQuad,
 ];
+// Every named technique strictly below Master tier — used to check for the
+// OTHER kind of degenerate hit (found the hard way on Simple Coloring):
+// not "something simpler is ALSO playable somewhere", which is normal at
+// any real position, but "something simpler reproduces the exact SAME
+// elimination" — genuinely redundant, not a real ALS-XZ example.
+const EASIER = [
+  ...SIMPLER,
+  hiddenSingle,
+  pointing,
+  claiming,
+  xWing,
+  skyscraper,
+  twoStringKite,
+  turbotFish,
+  swordfish,
+  xyWing,
+  wWing,
+  xyzWing,
+  finnedXWing,
+  finnedSwordfish,
+  uniqueRectangle,
+  bug1,
+];
 
 function evaluate(puzzle: string): Candidate | null {
   const g = parseGrid(puzzle);
@@ -186,6 +224,15 @@ function evaluate(puzzle: string): Candidate | null {
     if (!hint(probe, CAPTURE_LEADUP)) break;
   }
   const simplerAtFire = SIMPLER.some((t) => t(probe) !== null);
+
+  // Same-elimination overlap check (see EASIER's comment above).
+  const targets = new Set(step.eliminations.map((e) => `${e.cell}:${e.digit}`));
+  const redundant = EASIER.some((t) => {
+    const other = t(g);
+    if (!other) return false;
+    return other.eliminations.some((e) => targets.has(`${e.cell}:${e.digit}`));
+  });
+  if (redundant) return null;
 
   const aG = step.highlights.find((h) => h.role === 'base');
   const bG = step.highlights.find((h) => h.role === 'cover');
