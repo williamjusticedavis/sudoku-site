@@ -31,6 +31,10 @@ export const Route = createFileRoute('/learn/$slug')({
   ),
 });
 
+// Tactics simple enough that pencil marks aren't part of spotting them —
+// showing candidates anyway implies they're needed when they're not.
+const NO_CANDIDATES_SLUGS = new Set(['last-free-cell', 'cross-hatching']);
+
 const btn =
   'rounded-md px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40';
 const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
@@ -143,7 +147,7 @@ function LessonPage() {
             step={revealed ? step : null}
             dimOutsideFocus={revealed && !applied}
             focusMode={tactic.slug === 'bug+1' ? 'empty' : 'cells'}
-            showCandidates={tactic.slug !== 'last-free-cell'}
+            showCandidates={!NO_CANDIDATES_SLUGS.has(tactic.slug)}
           />
         </div>
 

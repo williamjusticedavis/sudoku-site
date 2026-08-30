@@ -84,13 +84,28 @@ function placeTemplate(step: Step): Beat[] {
 
   const beats: Beat[] = [];
   if (rel.length > 0) {
+    // Cross-hatching's step also carries 'cover' — the rows/columns/boxes
+    // crossing this unit that already hold the digit, i.e. the scanlines
+    // doing the excluding. Other techniques on this branch have none, so the
+    // filter is a no-op for them.
+    const supporting = step.highlights.filter(
+      (g) => g.role === 'related' || g.role === 'cover',
+    );
     beats.push({
       text: `Look at ${unit}. Every empty cell in it except ${p} is already kept from being ${d} by a ${d} it can see.`,
-      roles: ['related'],
+      roles: [],
+      groups: [
+        ...supporting.map((g) => ({
+          role: g.role,
+          cells: [...g.cells],
+          ...(g.digits ? { digits: [...g.digits] } : {}),
+        })),
+        { role: 'focus', cells: [spot.cell], digits: [d] },
+      ],
     });
     beats.push({
       text: `That leaves ${p} as the only cell in ${unit} where ${d} can still go.`,
-      roles: ['related', 'placement'],
+      roles: ['related', 'cover', 'placement'],
     });
   } else {
     beats.push({
@@ -105,7 +120,7 @@ function placeTemplate(step: Step): Beat[] {
   }
   beats.push({
     text: `Place ${d} in ${p}.`,
-    roles: ['related', 'placement'],
+    roles: ['related', 'cover', 'placement'],
   });
   return beats;
 }

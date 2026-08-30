@@ -57,6 +57,23 @@ function isPureScan(grid: Grid, unit: Unit, digit: Digit, spot: CellIndex): bool
   return true;
 }
 
+/** Every OTHER unit (row/column/box) that shares a cell with `unit` and
+ * already holds `digit` placed somewhere in it — i.e. a scanline that crosses
+ * `unit` and rules the digit out of the cell(s) they share. Cross-hatching's
+ * "cover" highlight: exactly the lines doing the excluding, nothing a blocking
+ * cell's OTHER units (that don't cross `unit`) would drag in. */
+function crossingLines(grid: Grid, unit: Unit, digit: Digit): CellIndex[] {
+  const target = new Set(unit.cells);
+  const cover = new Set<CellIndex>();
+  for (const other of UNITS) {
+    if (other === unit) continue;
+    if (!other.cells.some((c) => target.has(c))) continue;
+    if (!other.cells.some((c) => grid.placed[c] === digit)) continue;
+    for (const c of other.cells) cover.add(c);
+  }
+  return [...cover];
+}
+
 /** Find the first Hidden Single fact matching `wantPureScan`, built exactly
  * like `hiddenSingle` in singles.ts but filtered and relabelled. */
 function findLabelled(
@@ -86,12 +103,19 @@ function findLabelled(
       if (isPureScan(grid, unit, d, spot) !== wantPureScan) continue;
 
       const related = unit.cells.filter((c) => c !== spot);
+      // Cross-hatching is the scanline technique — show the rows/columns/boxes
+      // actually doing the crossing-out. Last Possible Number reads pencil
+      // marks instead, so it gets no cover lines.
+      const cover = technique === 'cross-hatching' ? crossingLines(grid, unit, d) : [];
       return makeStep({
         technique,
         placements: [{ cell: spot, digit: d }],
         highlights: [
           { role: 'placement', cells: [spot], digits: [d] },
           { role: 'related', cells: related, digits: [d] },
+          ...(cover.length > 0
+            ? [{ role: 'cover' as const, cells: cover, digits: [d] }]
+            : []),
         ],
         description: describe(d, spot, unit),
       });
