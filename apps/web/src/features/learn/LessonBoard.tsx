@@ -1,8 +1,21 @@
-import { useMemo } from 'react';
+import { PEERS } from '@sudoku/engine';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { CandidateMarker, CellRole } from '../solver/highlights.js';
 import { buildCandidateMarkers, buildHighlightMap } from '../solver/highlights.js';
 import { parseLessonGrid, stepCells, toEngineStep } from './stepAdapter.js';
 import type { LessonStep } from './types.js';
+
+/** Explore-mode highlighting — same idea as the solver grid's: click selects
+ * a cell (its peers dim up slightly), double-click "activates" a digit (every
+ * instance of it, plus their peers). Independent of solve-step roles, which
+ * is fine because the two never appear together: interaction only runs while
+ * `step` is null (the learner hasn't asked for the hint yet). */
+type Interaction = 'match' | 'peer';
+
+const INTERACTION_BG: Record<Interaction, string> = {
+  match: 'bg-yellow-200 dark:bg-yellow-600/40',
+  peer: 'bg-neutral-300/70 dark:bg-neutral-700/70',
+};
 
 /** Cell backgrounds per solve-step role — kept in step with the solver grid. */
 const ROLE_BG: Record<CellRole, string> = {
@@ -12,7 +25,8 @@ const ROLE_BG: Record<CellRole, string> = {
   cover: 'bg-indigo-200 dark:bg-indigo-800/70',
   fin: 'bg-amber-200 dark:bg-amber-700/70',
   related: 'bg-violet-200 dark:bg-violet-900/50',
-  focus: 'bg-neutral-300 dark:bg-neutral-600/70',
+  focus: 'bg-slate-300 dark:bg-neutral-600/70',
+  scan: 'bg-slate-100 dark:bg-neutral-800/50',
 };
 
 function CandidateMark({ marker }: { marker: CandidateMarker }) {
@@ -33,9 +47,14 @@ function CandidateMark({ marker }: { marker: CandidateMarker }) {
 function NoteMarks({
   mask,
   markers,
+  highlightDigit,
 }: {
   mask: number;
   markers: Map<number, CandidateMarker> | undefined;
+  /** Bold this digit wherever it appears as a candidate — set by double-
+   * clicking a placed instance of it, so every cell that could still take it
+   * jumps out (the whole point for a lesson like Last Possible Number). */
+  highlightDigit?: number | null;
 }) {
   return (
     <div className="grid h-full w-full grid-cols-3 grid-rows-3 text-[clamp(0.5rem,2.2cqw,0.85rem)] leading-none text-neutral-500 dark:text-neutral-400">
@@ -44,10 +63,18 @@ function NoteMarks({
         const has = (mask & (1 << k)) !== 0;
         const marker = markers?.get(d);
         const show = has || marker === 'eliminated';
+        const hot = has && highlightDigit === d;
         return (
           <span key={k} className="relative flex items-center justify-center">
             {marker && show && <CandidateMark marker={marker} />}
-            <span className={marker === 'eliminated' && !has ? 'opacity-50' : ''}>
+            <span
+              className={[
+                hot
+                  ? 'rounded-sm bg-amber-300 px-0.5 font-bold text-amber-900 dark:bg-transparent dark:px-0 dark:text-yellow-300'
+                  : '',
+                marker === 'eliminated' && !has ? 'opacity-50' : '',
+              ].join(' ')}
+            >
               {show ? d : ''}
             </span>
           </span>
@@ -73,6 +100,86 @@ interface LessonBoardProps {
    * Last Free Cell, where the technique doesn't involve candidates at all and
    * showing them implies otherwise. */
   showCandidates?: boolean;
+  /** Let the learner click/double-click cells to explore (select a cell, or
+   * double-click to light up every instance of its digit) — no digit entry,
+   * just looking. Meant for the "try it yourself" phase before the hint is
+   * shown; pass false once revealed so the step's own highlighting isn't
+   * competing with leftover selection state. Default true. */
+  interactive?: boolean;
+}
+
+/** Cells belonging to "the unit" a beat's text is pointing at: the spot cell
+ * (via 'placement' or its pre-placement stand-in 'focus') plus its unit-mates
+ * ('related'). Deliberately excludes 'scan' and other supporting roles —
+ * those are extra cells brought in to explain *why*, not part of the named
+ * unit itself, and would throw off the full-unit-or-nothing check below. */
+function unitMemberCells(step: LessonStep): number[] {
+  const roles = new Set(['related', 'placement', 'focus']);
+  const cells: number[] = [];
+  for (const g of step.highlights ?? []) if (roles.has(g.role)) cells.push(...g.cells);
+  for (const p of step.placements ?? []) cells.push(p.cell);
+  return cells;
+}
+
+/** If a step's unit-member cells are exactly one full row, column, or box,
+ * the CSS grid-line span framing it — so the board can draw a light outline
+ * around "the unit" a beat's text is pointing at (e.g. "Look at column 9").
+ * Anything short of a full unit (most fish/wing patterns) yields no outline,
+ * which is the right default for them. */
+function unitOutlineSpan(
+  cells: readonly number[],
+): { gridRow: string; gridColumn: string } | null {
+  const unique = new Set(cells);
+  if (unique.size !== 9) return null;
+  const rows = new Set([...unique].map((c) => Math.floor(c / 9)));
+  const cols = new Set([...unique].map((c) => c % 9));
+  const boxes = new Set(
+    [...unique].map(
+      (c) => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3),
+    ),
+  );
+  if (rows.size === 1) {
+    const r = [...rows][0]!;
+    return { gridRow: `${r + 1} / ${r + 2}`, gridColumn: '1 / 10' };
+  }
+  if (cols.size === 1) {
+    const c = [...cols][0]!;
+    return { gridColumn: `${c + 1} / ${c + 2}`, gridRow: '1 / 10' };
+  }
+  if (boxes.size === 1) {
+    const b = [...boxes][0]!;
+    const br = Math.floor(b / 3);
+    const bc = b % 3;
+    return {
+      gridRow: `${br * 3 + 1} / ${br * 3 + 4}`,
+      gridColumn: `${bc * 3 + 1} / ${bc * 3 + 4}`,
+    };
+  }
+  return null;
+}
+
+/** Center of cell `i` in a 9×9 unit-square coordinate space (1 unit = 1 cell). */
+function cellCenter(i: number): [number, number] {
+  return [(i % 9) + 0.5, Math.floor(i / 9) + 0.5];
+}
+
+/** An arrow's line, trimmed back from both cell centers so it doesn't run
+ * straight through either cell's digit — it reads as pointing from the
+ * blocking cell's neighborhood to the excluded cell's, not through them. */
+function arrowSegment(from: number, to: number, inset = 0.32) {
+  const [x1, y1] = cellCenter(from);
+  const [x2, y2] = cellCenter(to);
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  return {
+    x1: x1 + ux * inset,
+    y1: y1 + uy * inset,
+    x2: x2 - ux * inset,
+    y2: y2 - uy * inset,
+  };
 }
 
 export function LessonBoard({
@@ -81,8 +188,21 @@ export function LessonBoard({
   dimOutsideFocus = true,
   focusMode = 'cells',
   showCandidates = true,
+  interactive = true,
 }: LessonBoardProps) {
-  const { placed, candidates, roleMap, markerMap, focus } = useMemo(() => {
+  const arrowMarkerId = useId();
+  const arrows = step?.arrows ?? [];
+
+  const [selected, setSelected] = useState<number | null>(null);
+  const [digitHighlight, setDigitHighlight] = useState<number | null>(null);
+  // Drop any selection/activation the moment interaction turns off (the hint
+  // just got revealed) or the board underneath changes (new puzzle) — stale
+  // selection state pointing at an unrelated board is worse than none.
+  useEffect(() => {
+    setSelected(null);
+    setDigitHighlight(null);
+  }, [grid, interactive]);
+  const { placed, candidates, roleMap, markerMap, focus, unitOutline } = useMemo(() => {
     const parsed = parseLessonGrid(grid);
     const engineStep = step ? toEngineStep(step) : null;
     const frameCells = step ? stepCells(step) : [];
@@ -99,14 +219,39 @@ export function LessonBoard({
       roleMap: buildHighlightMap(engineStep),
       markerMap: buildCandidateMarkers(engineStep),
       focus: focusSet,
+      unitOutline: step ? unitOutlineSpan(unitMemberCells(step)) : null,
     };
   }, [grid, step, dimOutsideFocus, focusMode]);
+
+  const interactionMap = useMemo(() => {
+    const map = new Map<number, Interaction>();
+    if (!interactive) return map;
+    const active: number[] = [];
+    if (digitHighlight !== null) {
+      for (let i = 0; i < 81; i++) if (placed[i] === digitHighlight) active.push(i);
+    } else if (selected !== null) {
+      active.push(selected);
+    }
+    for (const c of active) for (const p of PEERS[c]!) map.set(p, 'peer');
+    for (const c of active) map.set(c, 'match');
+    return map;
+  }, [interactive, placed, selected, digitHighlight]);
+
+  function handleSelect(cell: number) {
+    setSelected(cell);
+    setDigitHighlight(null);
+  }
+  function handleActivate(cell: number) {
+    const d = placed[cell] ?? 0;
+    setSelected(cell);
+    setDigitHighlight(d === 0 ? null : d);
+  }
 
   return (
     <div
       role="grid"
       aria-label="Lesson sudoku grid"
-      className="grid aspect-square w-full max-w-[680px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 [container-type:inline-size] dark:border-neutral-300"
+      className="relative grid aspect-square w-full max-w-[680px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 [container-type:inline-size] dark:border-neutral-300"
     >
       {Array.from({ length: 81 }, (_, i) => {
         const col = i % 9;
@@ -115,32 +260,123 @@ export function LessonBoard({
         const role = roleMap.get(i);
         const markers = markerMap.get(i);
         const dim = focus ? !focus.has(i) : false;
+        const inter = interactionMap.get(i);
+        const isSelected = interactive && selected === i;
         return (
+          // Border lives on this outer cell so it never fades under
+          // `dimOutsideFocus` — only the fill/text (inner div) dims, keeping
+          // every grid line, including ones framing the highlighted region,
+          // crisp regardless of what's dimmed around it.
           <div
             key={i}
             role="gridcell"
             className={[
-              'relative flex h-full w-full items-center justify-center text-[clamp(0.9rem,6.2cqw,3rem)] font-medium select-none',
-              'border-r border-b border-neutral-300 dark:border-neutral-700',
-              role ? ROLE_BG[role] : 'bg-white dark:bg-neutral-900',
-              digit !== 0 ? 'text-blue-600 dark:text-blue-400' : '',
+              'relative border-r border-b border-neutral-400 dark:border-neutral-500',
               col % 3 === 2 && col !== 8
                 ? 'border-r-2 border-r-neutral-600 dark:border-r-neutral-300'
                 : '',
               row % 3 === 2 && row !== 8
                 ? 'border-b-2 border-b-neutral-600 dark:border-b-neutral-300'
                 : '',
-              dim ? 'opacity-25' : '',
             ].join(' ')}
           >
-            {digit !== 0 ? (
-              digit
-            ) : showCandidates ? (
-              <NoteMarks mask={candidates[i] ?? 0} markers={markers} />
-            ) : null}
+            <div
+              onPointerDown={interactive ? () => handleSelect(i) : undefined}
+              onClick={interactive ? () => handleSelect(i) : undefined}
+              onDoubleClick={interactive ? () => handleActivate(i) : undefined}
+              className={[
+                'relative flex h-full w-full items-center justify-center text-[clamp(0.9rem,6.2cqw,3rem)] font-medium select-none',
+                interactive ? 'touch-manipulation cursor-pointer' : '',
+                role
+                  ? ROLE_BG[role]
+                  : inter
+                    ? INTERACTION_BG[inter]
+                    : 'bg-white dark:bg-neutral-900',
+                digit !== 0 ? 'text-blue-600 dark:text-blue-400' : '',
+                dim ? 'opacity-25' : '',
+                isSelected ? 'z-10 ring-2 ring-inset ring-blue-500' : '',
+              ].join(' ')}
+            >
+              {digit !== 0 ? (
+                <>
+                  {markers?.get(digit) === 'marked' && (
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="pointer-events-none absolute inset-0 h-full w-full stroke-emerald-500"
+                      fill="none"
+                      strokeWidth="1"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                    </svg>
+                  )}
+                  {digit}
+                </>
+              ) : showCandidates ? (
+                <NoteMarks
+                  mask={candidates[i] ?? 0}
+                  markers={markers}
+                  highlightDigit={digitHighlight}
+                />
+              ) : null}
+            </div>
           </div>
         );
       })}
+      {unitOutline && (
+        // Absolutely positioned so it's sized against the grid lines named in
+        // `unitOutline` without joining auto-placement — a normal grid item
+        // spanning a whole row/column/box would otherwise compete with the 81
+        // cell divs for space and shove them out of position. `inset-0` is
+        // required too: grid-row/grid-column alone only anchor an abspos
+        // item's static position, they don't stretch it — without inset-0 it
+        // collapses to a 0×0 box (just the border, a stray little square).
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 border-2 border-cyan-600 dark:border-cyan-400"
+          style={unitOutline}
+        />
+      )}
+      {arrows.length > 0 && (
+        // Cross-hatching: a line from each blocking digit straight to the
+        // one cell it rules out — concrete instead of leaving the learner to
+        // trace the highlighted scanline themselves. viewBox is a 9×9 unit
+        // grid (1 unit = 1 cell), so cell-index math maps directly to it.
+        <svg
+          aria-hidden
+          viewBox="0 0 9 9"
+          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+        >
+          <defs>
+            <marker
+              id={arrowMarkerId}
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="4"
+              markerHeight="4"
+              markerUnits="strokeWidth"
+              orient="auto-start-reverse"
+            >
+              <path d="M0,0 L10,5 L0,10 z" className="fill-rose-600 dark:fill-rose-400" />
+            </marker>
+          </defs>
+          {arrows.map((a, i) => {
+            const seg = arrowSegment(a.from, a.to);
+            return (
+              <line
+                key={i}
+                x1={seg.x1}
+                y1={seg.y1}
+                x2={seg.x2}
+                y2={seg.y2}
+                strokeWidth="0.07"
+                className="stroke-rose-600 dark:stroke-rose-400"
+                markerEnd={`url(#${arrowMarkerId})`}
+              />
+            );
+          })}
+        </svg>
+      )}
     </div>
   );
 }

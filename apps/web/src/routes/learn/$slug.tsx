@@ -35,6 +35,16 @@ export const Route = createFileRoute('/learn/$slug')({
 // showing candidates anyway implies they're needed when they're not.
 const NO_CANDIDATES_SLUGS = new Set(['last-free-cell', 'cross-hatching']);
 
+// A nudge toward the board's double-click-to-explore trick, shown only on a
+// practice puzzle's "try it yourself" prompt — only for tactics where that
+// trick is actually the way you'd realistically spot the pattern by eye.
+const EXPLORE_TIPS: Record<string, string> = {
+  'cross-hatching':
+    'Tip: double-click a placed number to dim every cell it (and its other copies) rules out — the same blocked-out area cross-hatching scans for.',
+  'last-possible-number':
+    'Tip: double-click a placed number to bold that digit in every cell’s pencil marks too — makes it easy to spot the one cell where it’s still left.',
+};
+
 const btn =
   'rounded-md px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40';
 const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
@@ -148,6 +158,7 @@ function LessonPage() {
             dimOutsideFocus={revealed && !applied}
             focusMode={tactic.slug === 'bug+1' ? 'empty' : 'cells'}
             showCandidates={!NO_CANDIDATES_SLUGS.has(tactic.slug)}
+            interactive={!revealed}
           />
         </div>
 
@@ -168,6 +179,11 @@ function LessonPage() {
                   ? appliedSummary(step)
                   : step.explanation}
             </p>
+            {!revealed && EXPLORE_TIPS[tactic.slug] && (
+              <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                {EXPLORE_TIPS[tactic.slug]}
+              </p>
+            )}
           </div>
 
           {!revealed ? (

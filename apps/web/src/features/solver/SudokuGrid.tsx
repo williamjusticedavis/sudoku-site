@@ -49,6 +49,7 @@ const ROLE_BG: Record<CellRole, string> = {
   fin: 'bg-amber-200 dark:bg-amber-700/70',
   related: 'bg-violet-200 dark:bg-violet-900/50',
   focus: 'bg-neutral-300 dark:bg-neutral-600/70',
+  scan: 'bg-neutral-200 dark:bg-neutral-800/50',
 };
 
 const MISTAKE_BG = 'bg-rose-300 dark:bg-rose-800';

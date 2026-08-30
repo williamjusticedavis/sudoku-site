@@ -352,13 +352,27 @@ const PUZZLES: Record<string, [string, string, string]> = {
   ],
   'cross-hatching': [
     '000000000000000001000002030000003020001040000005000060030000004070080009620007000',
-    '000000000000000001000002030000003020004000050006010000030000006070080009520700000',
-    '000000000000000001000002030000004250006000000017000080000070006400060000900800010',
+    // Box-based example (puzzle 0 and 2 are both column/row) — real variety
+    // instead of two near-identical column scans. Mined via mine-cross-hatching.ts.
+    '003000000000837060090005000000700000207043050000019200000000806306000004050004000',
+    // Row-based example. Original had 7 simultaneous pure-scan opportunities
+    // at the fired position (row 4's 6 AND an equally-findable box-4 4,
+    // among others) — genuinely ambiguous, a learner could land on a
+    // different valid one. Mined with the uniqueness check enforced.
+    '002008000000600017500000400000053040000800001609702800000030050000000000037000906',
   ],
   'last-possible-number': [
     '000000000000000001000002030002000400003050000004100006050600000070000020080910000',
-    '000000000000000001000002030002000400003050000004600007050100000080000020090760000',
-    '000000000000000001000002034000004000005000600006030000030050000070060800240000007',
+    // Puzzles 1 and 2 replaced (mine-last-possible-number.ts): the originals
+    // each had 6 simultaneous hidden-single opportunities at the fired
+    // position — genuinely ambiguous on a "try it yourself" puzzle. These
+    // have exactly one. Kept the original column/row split.
+    '096008100100000480000000307903205000000040000200000900009310800050080040000007000',
+    // Puzzle 2's first replacement (row 4, digit 6) had a naked single
+    // sitting unapplied on the board — an even more obvious find than the
+    // intended pattern. The uniqueness check now catches that too; this one
+    // has neither a second hidden single nor a naked single.
+    '100580007007000000082000000300400500490000010705069800000000623000810000000900000',
   ],
   pointing: [
     '000000000000000001001002030000040000040560700080000020002000000003001000700080004',

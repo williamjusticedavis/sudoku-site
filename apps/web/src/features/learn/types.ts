@@ -22,6 +22,10 @@ export interface LessonStep {
   highlights?: LessonHighlight[];
   placements?: { cell: number; digit: number }[];
   eliminations?: { cell: number; digit: number }[];
+  /** Cell-to-cell pointers (e.g. cross-hatching's "this 2 disables that
+   * cell") for a step where the highlighted region alone doesn't spell out
+   * which specific cell each part is responsible for. */
+  arrows?: { from: number; to: number }[];
 }
 
 export interface LessonPuzzle {

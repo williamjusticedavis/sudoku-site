@@ -19,7 +19,7 @@
 import { cellName, type Step } from '@sudoku/engine';
 import type { HintStep } from './index.js';
 
-type Role = 'base' | 'cover' | 'fin' | 'placement' | 'elimination' | 'related';
+type Role = 'base' | 'cover' | 'fin' | 'placement' | 'elimination' | 'related' | 'scan';
 
 interface Beat {
   text: string;
@@ -29,6 +29,10 @@ interface Beat {
   /** Explicit highlight groups for this beat, overriding `roles`. Use when a
    * template needs to re-shape the Step's cells (e.g. split one group in two). */
   groups?: { role: string; cells: number[]; digits?: number[] }[];
+  /** Arrows visible on this beat (verbatim from the step — arrows aren't
+   * revealed progressively like highlight roles, a beat either shows them or
+   * doesn't). */
+  arrows?: { from: number; to: number }[];
 }
 
 // --- geometry / formatting helpers ----------------------------------------
@@ -84,12 +88,12 @@ function placeTemplate(step: Step): Beat[] {
 
   const beats: Beat[] = [];
   if (rel.length > 0) {
-    // Cross-hatching's step also carries 'cover' — the rows/columns/boxes
+    // Cross-hatching's step also carries 'scan' — the rows/columns/boxes
     // crossing this unit that already hold the digit, i.e. the scanlines
     // doing the excluding. Other techniques on this branch have none, so the
     // filter is a no-op for them.
     const supporting = step.highlights.filter(
-      (g) => g.role === 'related' || g.role === 'cover',
+      (g) => g.role === 'related' || g.role === 'scan',
     );
     beats.push({
       text: `Look at ${unit}. Every empty cell in it except ${p} is already kept from being ${d} by a ${d} it can see.`,
@@ -102,10 +106,15 @@ function placeTemplate(step: Step): Beat[] {
         })),
         { role: 'focus', cells: [spot.cell], digits: [d] },
       ],
+      // Cross-hatching only: which specific "2" rules out which specific
+      // cell — spelled out instead of left for the learner to trace along
+      // the scanned line themselves. Shown only on this opening beat; by the
+      // next beat attention has already moved on to the answer.
+      ...(step.arrows ? { arrows: step.arrows.map((a) => ({ ...a })) } : {}),
     });
     beats.push({
       text: `That leaves ${p} as the only cell in ${unit} where ${d} can still go.`,
-      roles: ['related', 'cover', 'placement'],
+      roles: ['related', 'scan', 'placement'],
     });
   } else {
     beats.push({
@@ -120,7 +129,7 @@ function placeTemplate(step: Step): Beat[] {
   }
   beats.push({
     text: `Place ${d} in ${p}.`,
-    roles: ['related', 'cover', 'placement'],
+    roles: ['related', 'scan', 'placement'],
   });
   return beats;
 }
@@ -595,6 +604,7 @@ export function buildWalkthrough(
         : [],
     };
     if (gridBefore) hs.gridBefore = gridBefore;
+    if (beat.arrows) hs.arrows = beat.arrows;
     return hs;
   });
 }

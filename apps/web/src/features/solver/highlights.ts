@@ -1,7 +1,7 @@
 import type { Step } from '@sudoku/engine';
 
 export type CellRole =
-  'base' | 'cover' | 'fin' | 'related' | 'elimination' | 'placement' | 'focus';
+  'base' | 'cover' | 'fin' | 'related' | 'elimination' | 'placement' | 'focus' | 'scan';
 
 /**
  * Map each highlighted cell to a single role for rendering. Later roles in
@@ -9,11 +9,14 @@ export type CellRole =
  * supporting ones (base/related) when a cell appears in more than one group.
  * `focus` is lowest priority — it's a neutral "look here" marker for a beat
  * that hasn't earned a real role yet (e.g. naked single's opening beat), so
- * any later, more specific role on the same cell overrides it.
+ * any later, more specific role on the same cell overrides it. `scan`
+ * (cross-hatching's crossing lines) sits just above it, styled quiet enough
+ * that it reads as background evidence rather than a decisive cell.
  */
 const PRIORITY: CellRole[] = [
   'focus',
   'related',
+  'scan',
   'cover',
   'base',
   'fin',

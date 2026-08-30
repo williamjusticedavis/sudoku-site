@@ -80,9 +80,12 @@ export interface Elimination {
  *  - `placement`      — a cell being solved (singles, last-free-cell).
  *  - `elimination`    — a cell losing candidates.
  *  - `related`        — supporting / seeing / link cells that explain the logic.
+ *  - `scan`           — cross-hatching's crossing rows/columns/boxes: cells
+ *    lit up only to show *why* (a full scanned line), kept visually quieter
+ *    than `cover` since it usually covers much more of the board.
  */
 export type HighlightRole =
-  'base' | 'cover' | 'fin' | 'placement' | 'elimination' | 'related';
+  'base' | 'cover' | 'fin' | 'placement' | 'elimination' | 'related' | 'scan';
 
 /** A set of cells sharing one visual role, plus the digits it concerns. */
 export interface HighlightGroup {
@@ -95,12 +98,24 @@ export interface HighlightGroup {
 /** All role-tagged groups a step wants highlighted. */
 export type Highlights = readonly HighlightGroup[];
 
+/** A directional pointer from one cell to another, for techniques where a
+ * highlighted region alone doesn't spell out which specific cell each part of
+ * it is responsible for — e.g. cross-hatching's scanned lines each rule out
+ * exactly one cell of the target unit; an arrow from the blocking digit to
+ * that cell makes the "this 2 disables that cell" link concrete. Optional and
+ * used sparingly — most techniques don't need it. */
+export interface Arrow {
+  readonly from: CellIndex;
+  readonly to: CellIndex;
+}
+
 /** Immutable record of one technique application. */
 export interface Step {
   readonly technique: TechniqueId;
   readonly placements: readonly Placement[];
   readonly eliminations: readonly Elimination[];
   readonly highlights: Highlights;
+  readonly arrows?: readonly Arrow[];
   readonly description: string;
 }
 
@@ -116,6 +131,7 @@ export function makeStep(input: {
   placements?: Placement[];
   eliminations?: Elimination[];
   highlights?: HighlightGroup[];
+  arrows?: Arrow[];
   description: string;
 }): Step {
   const placements = (input.placements ?? []).map((p) => Object.freeze({ ...p }));
@@ -134,11 +150,16 @@ export function makeStep(input: {
     ),
   );
 
+  const arrows = input.arrows
+    ? Object.freeze(input.arrows.map((a) => Object.freeze({ ...a })))
+    : undefined;
+
   return Object.freeze({
     technique: input.technique,
     placements: Object.freeze(placements),
     eliminations: Object.freeze(eliminations),
     highlights,
+    ...(arrows ? { arrows } : {}),
     description: input.description,
   });
 }

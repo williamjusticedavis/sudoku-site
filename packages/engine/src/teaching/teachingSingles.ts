@@ -29,13 +29,15 @@ import {
   SIZE,
   bit,
   cellName,
+  colOf,
+  rowOf,
   type CellIndex,
   type Digit,
   type Grid,
 } from '../grid.js';
 import { PEERS } from '../units.js';
 import { UNITS, type Unit } from '../units.js';
-import { makeStep, type Step, type Technique } from '../step.js';
+import { makeStep, type Arrow, type Step, type Technique } from '../step.js';
 
 /** A cell's candidates from placed peers alone, ignoring accumulated eliminations. */
 function peerOnlyMask(grid: Grid, cell: CellIndex): number {
@@ -74,6 +76,41 @@ function crossingLines(grid: Grid, unit: Unit, digit: Digit): CellIndex[] {
   return [...cover];
 }
 
+/** For each empty, excluded cell of `unit`, the one peer outside `unit` that
+ * holds `digit` and is therefore the specific reason THAT cell is blocked —
+ * an arrow from the blocking digit to the cell it rules out. Every excluded
+ * cell gets exactly one: a peer sharing its row or column is preferred (a
+ * clean straight line), but if that's the ONLY reason a cell is blocked — no
+ * row/column peer holds the digit, just a box-mate that shares neither (one
+ * of the 4 "diagonal" cells in any 3×3 box) — that box-mate is used instead.
+ * Leaving such a cell arrow-less would make it look unexplained; the diagonal
+ * line is the honest picture even though it's less tidy than a straight one. */
+function blockingArrows(
+  grid: Grid,
+  unit: Unit,
+  digit: Digit,
+  related: CellIndex[],
+): Arrow[] {
+  const inUnit = new Set(unit.cells);
+  const arrows: Arrow[] = [];
+  for (const c of related) {
+    if (grid.placed[c] !== 0) continue;
+    let diagonal: CellIndex | null = null;
+    let straight: CellIndex | null = null;
+    for (const p of PEERS[c]!) {
+      if (inUnit.has(p) || grid.placed[p] !== digit) continue;
+      if (rowOf(p) === rowOf(c) || colOf(p) === colOf(c)) {
+        straight = p;
+        break;
+      }
+      diagonal ??= p;
+    }
+    const from = straight ?? diagonal;
+    if (from !== null) arrows.push({ from, to: c });
+  }
+  return arrows;
+}
+
 /** Find the first Hidden Single fact matching `wantPureScan`, built exactly
  * like `hiddenSingle` in singles.ts but filtered and relabelled. */
 function findLabelled(
@@ -107,6 +144,8 @@ function findLabelled(
       // actually doing the crossing-out. Last Possible Number reads pencil
       // marks instead, so it gets no cover lines.
       const cover = technique === 'cross-hatching' ? crossingLines(grid, unit, d) : [];
+      const arrows =
+        technique === 'cross-hatching' ? blockingArrows(grid, unit, d, related) : [];
       return makeStep({
         technique,
         placements: [{ cell: spot, digit: d }],
@@ -114,9 +153,10 @@ function findLabelled(
           { role: 'placement', cells: [spot], digits: [d] },
           { role: 'related', cells: related, digits: [d] },
           ...(cover.length > 0
-            ? [{ role: 'cover' as const, cells: cover, digits: [d] }]
+            ? [{ role: 'scan' as const, cells: cover, digits: [d] }]
             : []),
         ],
+        ...(arrows.length > 0 ? { arrows } : {}),
         description: describe(d, spot, unit),
       });
     }

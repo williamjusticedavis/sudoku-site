@@ -27,6 +27,10 @@ export interface HintStep {
   highlights?: { role: string; cells: number[]; digits?: number[] }[];
   placements?: { cell: number; digit: number }[];
   eliminations?: { cell: number; digit: number }[];
+  /** Cell-to-cell pointers for steps where a highlighted region alone doesn't
+   * spell out which cell each part of it is responsible for — see engine's
+   * `Arrow`. Optional; most techniques don't need it. */
+  arrows?: { from: number; to: number }[];
 }
 
 /** Curated example puzzles per tactic (at least 3 each). */
