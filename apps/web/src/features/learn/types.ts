@@ -29,7 +29,7 @@ export interface LessonStep {
   /** Learn-only decorative lines (green, no arrowhead) connecting cells that
    * form a shape worth naming out loud — e.g. X-Wing's four corner cells
    * drawn as an X. Not "this blocks that" like `arrows` — just a visual aid. */
-  xLines?: { from: number; to: number }[];
+  xLines?: { from: number; to: number; style?: 'solid' | 'dashed' }[];
 }
 
 export interface LessonPuzzle {

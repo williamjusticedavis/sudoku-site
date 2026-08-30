@@ -21,10 +21,10 @@ const INTERACTION_BG: Record<Interaction, string> = {
 const ROLE_BG: Record<CellRole, string> = {
   placement: 'bg-emerald-200 dark:bg-emerald-800/70',
   elimination: 'bg-rose-200 dark:bg-rose-800/70',
-  base: 'bg-sky-200 dark:bg-sky-800/70',
+  base: 'bg-violet-200 dark:bg-violet-900/50',
   cover: 'bg-indigo-200 dark:bg-indigo-800/70',
   fin: 'bg-amber-200 dark:bg-amber-700/70',
-  related: 'bg-violet-200 dark:bg-violet-900/50',
+  related: 'bg-sky-200 dark:bg-sky-800/70',
   focus: 'bg-slate-300 dark:bg-neutral-600/70',
   scan: 'bg-slate-100 dark:bg-neutral-800/50',
 };
@@ -411,6 +411,7 @@ export function LessonBoard({
                 x2={seg.x2}
                 y2={seg.y2}
                 strokeWidth="0.06"
+                strokeDasharray={l.style === 'dashed' ? '0.18 0.12' : undefined}
                 className="stroke-emerald-600 dark:stroke-emerald-400"
               />
             );

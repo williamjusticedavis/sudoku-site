@@ -36,11 +36,11 @@ export const TACTIC_OVERVIEW: Record<string, string> = {
   'finned-jellyfish':
     'A Jellyfish with a fin. As with the smaller finned fish, only eliminations that also see the fin are safe.',
   skyscraper:
-    'Take a digit that forms two strong links (a row or column where it has exactly two candidates). If the two links share one end in a line, then the two far ends can’t both be false — one of them is the digit. Any cell that sees both far ends therefore can’t hold the digit.',
+    'Take a digit that forms two strong links (a row or column where it has exactly two candidates). If the two links share one end in a line, then the two far ends can’t both be false — one of them is the digit. Any cell that sees both far ends therefore can’t hold the digit. New to “strong link” and “weak link”? See Strong Links & Weak Links at the top of this tier.',
   '2-string-kite':
-    'One strong link on a digit in a row, one in a column, meeting in a shared box. Whichever way each link resolves, the digit lands at one of the two loose ends. A cell that sees both loose ends can’t be the digit.',
+    'One strong link on a digit in a row, one in a column, meeting in a shared box. Whichever way each link resolves, the digit lands at one of the two loose ends. A cell that sees both loose ends can’t be the digit. See Strong Links & Weak Links at the top of this tier for the vocabulary this lesson leans on.',
   'turbot-fish':
-    'A short single-digit chain: strong link, weak link, strong link. The two ends of the chain can’t both be the wrong colour, so a cell seeing both ends loses the digit. Skyscraper and 2-String Kite are the two shapes this chain can take.',
+    'A short single-digit chain: strong link, weak link, strong link. The two ends of the chain can’t both be the wrong colour, so a cell seeing both ends loses the digit. Skyscraper and 2-String Kite are the two shapes this chain can take — see Strong Links & Weak Links at the top of this tier if that pairing is new.',
   'xy-wing':
     'A pivot cell with candidates X and Y, plus two “pincer” cells it can see: one holding X and Z, the other Y and Z. Whatever the pivot turns out to be, one pincer is forced to Z. So any cell that sees both pincers cannot be Z.',
   'xyz-wing':
@@ -52,7 +52,7 @@ export const TACTIC_OVERVIEW: Record<string, string> = {
   'unique-rectangle':
     'Four cells forming a rectangle across exactly two boxes, three of them holding only the same pair {X, Y}. If the fourth also held just {X, Y}, you could swap X and Y around the rectangle for a second solution — which a valid puzzle can’t have. So the fourth cell must be something other than X or Y.',
   'bug+1':
-    'A “Bivalue Universal Grave” is a grid state where every unsolved cell has exactly two candidates — a state with multiple solutions. If your grid is one cell away from that (every cell bivalue except one with three candidates), the puzzle’s single solution must be the one that avoids the grave: the odd cell takes the candidate that appears an odd number of times in its row, column and box.',
+    'A “Bivalue Universal Grave” is a grid state where every unsolved cell has exactly two candidates — a state with multiple solutions. If your grid is one cell away from that (every cell bivalue except one with three candidates), the puzzle’s single solution must be the one that avoids the grave: the odd cell takes the candidate that appears an odd number of times in its row, column and box. The other two candidates are the ones to rule out, not guess between — placing either just completes the all-bivalue grave and leaves you stuck with no further logical move, so the odd one out is the only choice that actually moves the solve forward.',
   'simple-coloring':
     'Pick a digit and colour the two ends of every strong link on it, alternating colours along each connected chain. Exactly one colour is the true set of that digit. Two consequences: if one colour appears twice in a unit it’s entirely false; and any cell that sees both colours must see the true digit, so it can’t be the digit itself.',
   'als-xz':

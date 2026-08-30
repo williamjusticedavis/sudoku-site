@@ -172,6 +172,20 @@ function LearnOverview() {
                 </span>
               </div>
               <div className={`mb-4 h-0.5 w-full rounded-full ${accent.rule}`} />
+              {tier === 'advanced' && (
+                <Link
+                  to="/learn/strong-weak-links"
+                  className={`mb-3 flex flex-col gap-1 rounded-lg border border-dashed bg-white p-4 transition-colors dark:bg-neutral-900 ${accent.card}`}
+                >
+                  <div className="font-semibold text-neutral-900 dark:text-neutral-100">
+                    Strong Links &amp; Weak Links
+                  </div>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                    Not a tactic — the vocabulary every lesson below leans on. Read this
+                    first if "strong link" and "weak link" are new.
+                  </p>
+                </Link>
+              )}
               <TierTactics tactics={list} accent={accent} />
             </section>
           );

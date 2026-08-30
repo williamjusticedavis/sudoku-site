@@ -35,7 +35,7 @@ export interface HintStep {
    * form a shape worth naming out loud — e.g. X-Wing's four corner cells
    * literally drawn as an X. Unlike `arrows`, these aren't "this blocks
    * that": just a visual aid, so kept as a separate field. */
-  xLines?: { from: number; to: number }[];
+  xLines?: { from: number; to: number; style?: 'solid' | 'dashed' }[];
 }
 
 /** Curated example puzzles per tactic (at least 3 each). */

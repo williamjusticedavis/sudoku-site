@@ -19,8 +19,11 @@
 import {
   cellName,
   commonPeers,
+  hasCand,
   parseGrid,
   parseGridWithCandidates,
+  sees,
+  type Digit,
   type Grid,
   type Step,
 } from '@sudoku/engine';
@@ -47,8 +50,10 @@ interface Beat {
    * revealed progressively like highlight roles, a beat either shows them or
    * doesn't). */
   arrows?: { from: number; to: number }[];
-  /** Learn-only decorative lines (green, no arrowhead) — see `HintStep.xLines`. */
-  xLines?: { from: number; to: number }[];
+  /** Learn-only decorative lines (green, no arrowhead) — see `HintStep.xLines`.
+   * `style: 'dashed'` for a weak link (shares a unit, "not both"), solid
+   * (the default) for a strong link (conjugate pair, "not one → the other"). */
+  xLines?: { from: number; to: number; style?: 'solid' | 'dashed' }[];
 }
 
 // --- geometry / formatting helpers ----------------------------------------
@@ -191,7 +196,7 @@ function bugTemplate(step: Step): Beat[] {
       roles: [],
     },
     {
-      text: `If ${p} were one of its two "pair" digits, every remaining cell would be bivalue and the puzzle would have more than one solution. A valid puzzle can't allow that.`,
+      text: `If ${p} were one of its two "pair" digits, every remaining cell would be bivalue and the puzzle would have more than one solution. A valid puzzle can't allow that — so don't guess between those two, they're both dead ends that just complete the grave with no further move.`,
       roles: ['placement'],
     },
     {
@@ -352,7 +357,20 @@ function fishTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   // that count (2 = X-Wing, 3 = Swordfish, 4 = Jellyfish).
   const rowSet = new Set(base.map(rowOf));
   const colSet = new Set(base.map(colOf));
-  const baseIsRows = rowSet.size <= colSet.size;
+  // When both axes have the same count (e.g. a 3-row/3-col Swordfish), row-vs-
+  // column size alone can't tell which one is actually the base — the engine
+  // itself picked one specific orientation (see fish.ts's ORIENTATIONS search
+  // order) and only that one produces a valid fish; guessing wrong here mislabels
+  // which lines get outlined and which get the red wash. The step's own
+  // description ("... on d: rows/columns X,Y,Z confine...") names the real
+  // orientation directly, so read it from there instead of re-deriving it.
+  const descOrientation = /:\s*(rows|columns)\s/.exec(step.description)?.[1];
+  const baseIsRows =
+    descOrientation === 'rows'
+      ? true
+      : descOrientation === 'columns'
+        ? false
+        : rowSet.size <= colSet.size;
   const n = Math.min(rowSet.size, colSet.size);
   const bare = n === 2 ? 'X-Wing' : n === 3 ? 'Swordfish' : 'Jellyfish';
   const size = fin.length > 0 ? `finned ${bare}` : bare;
@@ -365,26 +383,22 @@ function fishTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const baseNums = baseVals.map((v) => v + 1);
   const coverNums = coverVals.map((v) => v + 1);
 
-  // Plain (unfinned) X-Wing: outline both base lines from beat 1, draw the
-  // pattern's 4 corner cells as a literal green X (not just "two rows and
-  // two columns" for the learner to cross mentally), and wash the whole
-  // cover lines red as soon as they're named — same "mark everything in
-  // play, not just what ends up eliminated" convention as the naked/hidden
-  // subset and locked-candidates templates.
-  if (n === 2 && fin.length === 0) {
+  // X-Wing/Swordfish, plain OR finned: outline every base line from beat 1
+  // and wash the cover cells red as soon as they're named — same "mark
+  // everything in play, not just what ends up eliminated" convention as the
+  // naked/hidden subset and locked-candidates templates. Finned narrows the
+  // wash to cover cells that also see the fin (the only ones the weaker
+  // deduction actually covers). X-Wing only (n===2) additionally draws the
+  // pattern's 4 corners as a literal green X — Swordfish's 3-line shape
+  // doesn't reduce to a clean X, so it skips that part.
+  if (n === 2 || n === 3) {
     const outlineGroups = baseVals.map((v) => ({
       role: 'outline-unit',
       cells: lineCellsOf(baseIsRows ? v * 9 : v, baseIsRows ? 'row' : 'col'),
     }));
     const baseGroup = { role: 'base', cells: [...base], digits: [d] };
-    // The 4 corners, connected diagonally so opposite corners form an X.
-    const idx = (r: number, c: number) => r * 9 + c;
-    const [r0, r1] = baseIsRows ? baseVals : coverVals;
-    const [c0, c1] = baseIsRows ? coverVals : baseVals;
-    const xLines = [
-      { from: idx(r0!, c0!), to: idx(r1!, c1!) },
-      { from: idx(r0!, c1!), to: idx(r1!, c0!) },
-    ];
+    const finGroup =
+      fin.length > 0 ? { role: 'fin', cells: [...fin], digits: [d] } : null;
     const coverOutlineGroups = coverVals.map((v) => ({
       role: 'outline-unit',
       cells: lineCellsOf(baseIsRows ? v : v * 9, baseIsRows ? 'col' : 'row'),
@@ -392,34 +406,76 @@ function fishTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
     const coverCells = new Set(coverOutlineGroups.flatMap((g) => g.cells));
     const baseSet = new Set(base);
     // Only empty cells need the red wash — a cell that already holds a digit
-    // isn't a candidate to strike, marking it just adds noise.
+    // isn't a candidate to strike, marking it just adds noise. Finned: only
+    // cells that also see the fin are actually covered by the deduction.
     const wash = {
       role: 'elimination',
-      cells: [...coverCells].filter((c) => !baseSet.has(c) && grid.placed[c] === 0),
+      cells: [...coverCells].filter(
+        (c) =>
+          !baseSet.has(c) &&
+          grid.placed[c] === 0 &&
+          (fin.length === 0 || fin.some((f) => sees(c, f))),
+      ),
     };
+    const beatGroups = [baseGroup, ...(finGroup ? [finGroup] : []), ...outlineGroups];
+    const finalGroups = [
+      baseGroup,
+      ...(finGroup ? [finGroup] : []),
+      wash,
+      ...outlineGroups,
+      ...coverOutlineGroups,
+    ];
+
+    let xLines: { from: number; to: number }[] = [];
+    let introText: string;
+    if (n === 2) {
+      // The 4 corners, connected diagonally so opposite corners form an X.
+      const idx = (r: number, c: number) => r * 9 + c;
+      const [r0, r1] = baseIsRows ? baseVals : coverVals;
+      const [c0, c1] = baseIsRows ? coverVals : baseVals;
+      xLines = [
+        { from: idx(r0!, c0!), to: idx(r1!, c1!) },
+        { from: idx(r0!, c1!), to: idx(r1!, c0!) },
+      ];
+      introText =
+        fin.length > 0
+          ? `Digit ${d} in ${baseKind} ${digits(baseNums)} only fits in ${coverKind} ${digits(coverNums)} — the 4 cells ${cells(base)} form an X — plus one extra candidate at the fin, ${cells(fin)}.`
+          : `Digit ${d} in ${baseKind} ${digits(baseNums)} only fits in ${coverKind} ${digits(coverNums)}. The 4 cells where they cross — ${cells(base)} — form an X: if ${cellName(idx(r0!, c0!))} is ${d}, ${cellName(idx(r1!, c1!))} must be ${d} too — and if ${cellName(idx(r0!, c1!))} is ${d}, ${cellName(idx(r1!, c0!))} must be ${d} too.`;
+    } else {
+      introText =
+        fin.length > 0
+          ? `Across ${baseKind} ${digits(baseNums)}, digit ${d} is pinned to just ${n} ${coverKind}: ${digits(coverNums)} — plus one extra candidate at the fin, ${cells(fin)}. That's a Swordfish on ${d}, with a fin.`
+          : `Across ${baseKind} ${digits(baseNums)}, digit ${d} is pinned to just ${n} ${coverKind}: ${digits(coverNums)}. That's a Swordfish on ${d}.`;
+    }
+
+    const beat3Text =
+      fin.length > 0
+        ? `The extra candidate at the fin weakens the deduction: only cells in ${coverKind} ${digits(coverNums)} that also see the fin are still guaranteed safe to clear.`
+        : `Any other cell in ${coverKind} ${digits(coverNums)}, outside ${baseKind} ${digits(baseNums)}, therefore can't be ${d}.`;
+
     return [
       {
-        text: `Digit ${d} in ${baseKind} ${digits(baseNums)} only fits in ${coverKind} ${digits(coverNums)}. The 4 cells where they cross — ${cells(base)} — form an X: if ${cellName(idx(r0!, c0!))} is ${d}, ${cellName(idx(r1!, c1!))} must be ${d} too — and if ${cellName(idx(r0!, c1!))} is ${d}, ${cellName(idx(r1!, c0!))} must be ${d} too.`,
+        text: introText,
         roles: [],
-        groups: [baseGroup, ...outlineGroups],
+        groups: beatGroups,
         xLines,
       },
       {
         text: `Each of those ${baseKind} needs a ${d}, and they can only take it in ${coverKind} ${digits(coverNums)} — so those ${coverKind} are spoken for.`,
         roles: [],
-        groups: [baseGroup, ...outlineGroups],
+        groups: beatGroups,
         xLines,
       },
       {
-        text: `Any other cell in ${coverKind} ${digits(coverNums)}, outside ${baseKind} ${digits(baseNums)}, therefore can't be ${d}.`,
+        text: beat3Text,
         roles: [],
-        groups: [baseGroup, wash, ...outlineGroups, ...coverOutlineGroups],
+        groups: finalGroups,
         xLines,
       },
       {
         text: `Remove ${d} from ${cells(elim)}.`,
         roles: [],
-        groups: [baseGroup, wash, ...outlineGroups, ...coverOutlineGroups],
+        groups: finalGroups,
         xLines,
       },
     ];
@@ -461,39 +517,134 @@ function fishTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   return beats;
 }
 
-/** Single-digit chains: Skyscraper / 2-String Kite / Turbot Fish. */
-function chainTemplate(step: Step): Beat[] {
-  const b = groupCells(step, 'base');
-  const r = groupCells(step, 'related');
+/** Turbot Fish: the general case of a 2-strong-link chain — either strong
+ * link (and the weak link between their inner ends) can be a row, column, OR
+ * box, unlike Skyscraper (both strong links aligned rows/cols) or 2-String
+ * Kite (row+col strong links, box-sharing weak link). Same opening move as
+ * Kite: start on the two related (inner) cells and their shared unit — the
+ * most direct connection in the pattern — before bringing in the two free
+ * ends and their own separate strong links. Each relevant row/column/box
+ * gets outlined only once the beat reading it actually names it. */
+function turbotFishTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
+  const b = groupCells(step, 'base'); // the two free ends
+  const r = groupCells(step, 'related'); // the two inner ends
   const d = groupDigits(step, 'base')[0] ?? elimDigit(step);
   const elim = elimCells(step);
+
+  // Order is preserved from the engine's chain-building (base[0]/related[0]
+  // are the two ends of one strong link, base[1]/related[1] the other) — no
+  // need to re-derive the pairing by geometry.
+  const o1 = b[0]!;
+  const e1 = r[0]!;
+  const o2 = b[1]!;
+  const e2 = r[1]!;
+
+  // Two cells can coincidentally share a row/column even when the actual
+  // strong link the engine found there is really a box link (e.g. the far
+  // ends just happen to line up in a column that already has other
+  // candidates for d — sharing a line is not proof it's a 2-candidate line).
+  // A STRONG link must additionally check the count: exactly 2 candidate
+  // cells for d in that unit, and they're the two we think they are. The
+  // weak link between e1/e2 has no such requirement — any shared unit
+  // genuinely proves "at most one of them is d" — so it stays geometric.
+  const sharedAxisOf = (x: number, y: number): 'row' | 'col' | 'box' =>
+    rowOf(x) === rowOf(y) ? 'row' : colOf(x) === colOf(y) ? 'col' : 'box';
+  const unitCellsOf = (c: number, axis: 'row' | 'col' | 'box') =>
+    axis === 'box' ? boxCellsOf(c) : lineCellsOf(c, axis);
+  const label = (axis: 'row' | 'col' | 'box') =>
+    axis === 'box' ? 'box' : axis === 'row' ? 'row' : 'column';
+  const numOf = (c: number, axis: 'row' | 'col' | 'box') =>
+    (axis === 'box' ? boxOf(c) : axis === 'row' ? rowOf(c) : colOf(c)) + 1;
+  const strongAxisOf = (x: number, y: number): 'row' | 'col' | 'box' => {
+    const isStrongIn = (cells: number[]) => {
+      const cands = cells.filter(
+        (c) => grid.placed[c] === 0 && hasCand(grid.candidates[c]!, d as Digit),
+      );
+      return cands.length === 2 && cands.includes(x) && cands.includes(y);
+    };
+    if (rowOf(x) === rowOf(y) && isStrongIn(lineCellsOf(x, 'row'))) return 'row';
+    if (colOf(x) === colOf(y) && isStrongIn(lineCellsOf(x, 'col'))) return 'col';
+    return 'box';
+  };
+
+  const axis1 = strongAxisOf(o1, e1);
+  const axis2 = strongAxisOf(o2, e2);
+  const weakAxis = sharedAxisOf(e1, e2);
+
+  const outline1 = { role: 'outline-unit', cells: unitCellsOf(o1, axis1) };
+  const outline2 = { role: 'outline-unit', cells: unitCellsOf(o2, axis2) };
+  const weakOutline = { role: 'outline-unit', cells: unitCellsOf(e1, weakAxis) };
+  const base1 = { role: 'base', cells: [o1], digits: [d] };
+  const related1 = { role: 'related', cells: [e1], digits: [d] };
+  const baseGroup = { role: 'base', cells: [o1, o2], digits: [d] };
+  const relatedGroup = { role: 'related', cells: [e1, e2], digits: [d] };
+  // Solid = strong link, dashed = weak — see the concept page linked from
+  // this lesson's overview. Each strong link's own line appears the moment
+  // that link is introduced; the dashed weak link joins once beat 3 names it.
+  const strongLine1 = { from: o1, to: e1, style: 'solid' as const };
+  const strongLine2 = { from: o2, to: e2, style: 'solid' as const };
+  const weakLine = { from: e1, to: e2, style: 'dashed' as const };
+  const endsSet = new Set([o1, o2, e1, e2]);
+  const wash = {
+    role: 'elimination',
+    cells: commonPeers([o1, o2]).filter((c) => grid.placed[c] === 0 && !endsSet.has(c)),
+  };
+
   return [
     {
-      text: `${cells(b)} are the two ends of a short single-digit chain on ${d} — linked so that at least one of them is ${d}.`,
-      roles: ['base'],
+      text: `${cellName(o1)} and ${cellName(e1)} are the only two spots for ${d} in ${label(
+        axis1,
+      )} ${numOf(o1, axis1)} — a strong link: whichever one isn't ${d}, the other one is.`,
+      roles: [],
+      groups: [base1, related1, outline1],
+      xLines: [strongLine1],
     },
     {
-      text: `${cells(r)} carry that link across the grid: whichever way it resolves, ${d} is forced into one end of the chain or the other.`,
-      roles: ['base', 'related'],
+      text: `${cellName(e2)} and ${cellName(o2)} are the same kind of strong link, in ${label(
+        axis2,
+      )} ${numOf(o2, axis2)} this time.`,
+      roles: [],
+      groups: [baseGroup, relatedGroup, outline1, outline2],
+      xLines: [strongLine1, strongLine2],
     },
     {
-      text: `Any cell that sees both ends must therefore see ${aDigit(d)} — so it can't be ${d} itself.`,
-      roles: ['base', 'related', 'elimination'],
+      text: `${cellName(e1)} and ${cellName(e2)} also share ${label(weakAxis)} ${numOf(
+        e1,
+        weakAxis,
+      )} — a weak link: at most one of them is ${d}. Whichever one isn't, its own ${label(
+        axis1,
+      )}/${label(
+        axis2,
+      )} has nowhere else to put ${d} except its outer end — either way, ${d} lands in ${cellName(
+        o1,
+      )} or ${cellName(o2)}.`,
+      roles: [],
+      groups: [baseGroup, relatedGroup, outline1, outline2, weakOutline],
+      xLines: [strongLine1, strongLine2, weakLine],
+    },
+    {
+      text: `Any cell that sees both ${cellName(o1)} and ${cellName(o2)} must therefore see ${aDigit(
+        d,
+      )} — so it can't be ${d} itself.`,
+      roles: [],
+      groups: [baseGroup, relatedGroup, wash, outline1, outline2, weakOutline],
+      xLines: [strongLine1, strongLine2, weakLine],
     },
     {
       text: `Remove ${d} from ${cells(elim)}.`,
-      roles: ['base', 'related', 'elimination'],
+      roles: [],
+      groups: [baseGroup, relatedGroup, wash, outline1, outline2, weakOutline],
+      xLines: [strongLine1, strongLine2, weakLine],
     },
   ];
 }
 
-/** Skyscraper: same 4-cell shape as X-Wing (two parallel strong links) but
- * the free ends DON'T share the cross-axis line the way X-Wing's do — only
- * the two inner ("roof") ends share it. Framed explicitly against X-Wing
- * (which the learner has usually just done) rather than as a generic
- * "chain", and the final elimination washes every empty cell that sees both
- * free ends red, not just the ones actually losing the candidate — same
- * "mark everything in play" convention as the other templates. */
+/** Skyscraper: two parallel strong links (both rows, or both columns) whose
+ * inner ("roof") ends line up on the cross axis — a weak link. Narrated as
+ * three short beats before the payoff (one strong link, the other strong
+ * link, the weak link joining their roofs) rather than one bulky beat that
+ * dumps the whole pattern at once — each beat's own cells keep the same
+ * base/related colouring they'll keep for the rest of the walkthrough. */
 function skyscraperTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const b = groupCells(step, 'base'); // the two free ends
   const r = groupCells(step, 'related'); // the two inner ("roof") ends
@@ -513,13 +664,18 @@ function skyscraperTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const o2 = b[1]!;
   const e2 = r.find((e) => e !== e1)!;
 
-  const outlineGroups = [lineCellsOf(o1, axis), lineCellsOf(o2, axis)].map((cs) => ({
-    role: 'outline-unit',
-    cells: cs,
-  }));
-  const baseGroup = { role: 'base', cells: [o1, o2], digits: [d] };
-  const relatedGroup = { role: 'related', cells: [e1, e2], digits: [d] };
-  const xLines = [{ from: e1, to: e2 }];
+  const outline1 = { role: 'outline-unit', cells: lineCellsOf(o1, axis) };
+  const outline2 = { role: 'outline-unit', cells: lineCellsOf(o2, axis) };
+  const base1 = { role: 'base', cells: [o1], digits: [d] };
+  const related1 = { role: 'related', cells: [e1], digits: [d] };
+  const baseBoth = { role: 'base', cells: [o1, o2], digits: [d] };
+  const relatedBoth = { role: 'related', cells: [e1, e2], digits: [d] };
+  // Solid = strong link, dashed = weak — see the concept page linked from
+  // this lesson's overview. Each strong link's own line appears the moment
+  // that link is introduced; the dashed weak link joins once beat 3 names it.
+  const strongLine1 = { from: o1, to: e1, style: 'solid' as const };
+  const strongLine2 = { from: o2, to: e2, style: 'solid' as const };
+  const weakLine = { from: e1, to: e2, style: 'dashed' as const };
   const endsSet = new Set([o1, o2, e1, e2]);
   const wash = {
     role: 'elimination',
@@ -530,59 +686,169 @@ function skyscraperTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
     {
       text: `${cellName(o1)} and ${cellName(e1)} are the only two spots for ${d} in ${lineLabel} ${
         lineOf(o1) + 1
-      }; ${cellName(e2)} and ${cellName(o2)} are the only two spots in ${lineLabel} ${
-        lineOf(o2) + 1
-      }. That's close to an X-Wing's 4-cell shape — but it doesn't line up the same way: ${crossLabel} ${
-        crossOf(e1) + 1
-      } lines up between the two ${lineLabel}s (${cellName(e1)} and ${cellName(
-        e2,
-      )}), while the outer ends ${cellName(o1)} and ${cellName(o2)} sit in different ${crossLabel}s — so there's no clean box to strike a whole line from.`,
+      } — a strong link: whichever one isn't ${d}, the other one is.`,
       roles: [],
-      groups: [baseGroup, relatedGroup, ...outlineGroups],
-      xLines,
+      groups: [base1, related1, outline1],
+      xLines: [strongLine1],
     },
     {
-      text: `${cellName(e1)} and ${cellName(e2)} share ${crossLabel} ${
+      text: `${cellName(e2)} and ${cellName(o2)} are the same kind of strong link, in ${lineLabel} ${
+        lineOf(o2) + 1
+      } this time.`,
+      roles: [],
+      groups: [baseBoth, relatedBoth, outline1, outline2],
+      xLines: [strongLine1, strongLine2],
+    },
+    {
+      text: `${cellName(e1)} and ${cellName(e2)} also share ${crossLabel} ${
         crossOf(e1) + 1
-      }, so at most one of them is ${d}. Whichever one isn't, its own ${lineLabel} has nowhere else to put ${d} except its outer end — so ${d} always lands in ${cellName(
+      } — a weak link: at most one of them is ${d}. That's close to an X-Wing's 4-cell shape, but only the two inner ends line up like that; the outer ends ${cellName(
+        o1,
+      )} and ${cellName(o2)} sit in different ${crossLabel}s, so there's no clean box to strike a whole line from.`,
+      roles: [],
+      groups: [baseBoth, relatedBoth, outline1, outline2],
+      xLines: [strongLine1, strongLine2, weakLine],
+    },
+    {
+      text: `Whichever of ${cellName(e1)}/${cellName(e2)} isn't ${d}, its own ${lineLabel} has nowhere else to put ${d} except its outer end — so ${d} always lands in ${cellName(
+        o1,
+      )} or ${cellName(o2)}. Any cell that sees both must therefore see ${aDigit(
+        d,
+      )} — so it can't be ${d} itself.`,
+      roles: [],
+      groups: [baseBoth, relatedBoth, wash, outline1, outline2],
+      xLines: [strongLine1, strongLine2, weakLine],
+    },
+    {
+      text: `Remove ${d} from ${cells(elim)}.`,
+      roles: [],
+      groups: [baseBoth, relatedBoth, wash, outline1, outline2],
+      xLines: [strongLine1, strongLine2, weakLine],
+    },
+  ];
+}
+
+/** 2-String Kite: one row strong link + one column strong link, whose inner
+ * ends share a box. Narrated the same way as Skyscraper now that the
+ * strong/weak link vocabulary exists: one strong link, then the other, then
+ * how their inner ends relate (a weak link, via the shared box), then the
+ * elimination the two free ends produce together. Each cell keeps ONE role
+ * (and colour) for the whole walkthrough — related cells stay related, base
+ * cells stay base, from whichever beat first reveals them — only which
+ * cells are VISIBLE grows beat to beat, never which colour an already-
+ * visible cell recolours to. */
+function kiteTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
+  const b = groupCells(step, 'base'); // the two free ends
+  const r = groupCells(step, 'related'); // the two inner ends (share a box)
+  const d = groupDigits(step, 'base')[0] ?? elimDigit(step);
+  const elim = elimCells(step);
+
+  const o1 = b[0]!;
+  const o2 = b[1]!;
+  const axisTo = (o: number, e: number): 'row' | 'col' =>
+    rowOf(e) === rowOf(o) ? 'row' : 'col';
+  const e1 = r.find((e) => rowOf(e) === rowOf(o1) || colOf(e) === colOf(o1))!;
+  const e2 = r.find((e) => e !== e1)!;
+  const axis1 = axisTo(o1, e1);
+  const axis2 = axisTo(o2, e2);
+  const label = (axis: 'row' | 'col') => (axis === 'row' ? 'row' : 'column');
+  const numOf = (c: number, axis: 'row' | 'col') =>
+    (axis === 'row' ? rowOf(c) : colOf(c)) + 1;
+
+  const line1 = { role: 'outline-unit', cells: lineCellsOf(o1, axis1) };
+  const line2 = { role: 'outline-unit', cells: lineCellsOf(o2, axis2) };
+  const boxOutline = { role: 'outline-unit', cells: boxCellsOf(e1) };
+  const base1 = { role: 'base', cells: [o1], digits: [d] };
+  const related1 = { role: 'related', cells: [e1], digits: [d] };
+  const baseBoth = { role: 'base', cells: [o1, o2], digits: [d] };
+  const relatedBoth = { role: 'related', cells: [e1, e2], digits: [d] };
+  // Solid = strong link, dashed = weak — see the concept page linked from
+  // this lesson's overview. Each strong link's own line appears the moment
+  // that link is introduced; the dashed weak link joins once beat 3 names it.
+  const strongLine1 = { from: o1, to: e1, style: 'solid' as const };
+  const strongLine2 = { from: o2, to: e2, style: 'solid' as const };
+  const weakLine = { from: e1, to: e2, style: 'dashed' as const };
+  const endsSet = new Set([o1, o2, e1, e2]);
+  const wash = {
+    role: 'elimination',
+    cells: commonPeers([o1, o2]).filter((c) => grid.placed[c] === 0 && !endsSet.has(c)),
+  };
+
+  return [
+    {
+      text: `${cellName(o1)} and ${cellName(e1)} are the only two spots for ${d} in ${label(
+        axis1,
+      )} ${numOf(o1, axis1)} — a strong link: whichever one isn't ${d}, the other one is.`,
+      roles: [],
+      groups: [base1, related1, line1],
+      xLines: [strongLine1],
+    },
+    {
+      text: `${cellName(e2)} and ${cellName(o2)} are the same kind of strong link, in ${label(
+        axis2,
+      )} ${numOf(o2, axis2)} this time.`,
+      roles: [],
+      groups: [baseBoth, relatedBoth, line1, line2],
+      xLines: [strongLine1, strongLine2],
+    },
+    {
+      text: `${cellName(e1)} and ${cellName(e2)} also sit together in box ${
+        boxOf(e1) + 1
+      } — a weak link: at most one of them is ${d}. Whichever one isn't, its own ${label(
+        axis1,
+      )}/${label(axis2)} has only one other place to put ${d}: the far end. So ${d} always ends up in ${cellName(
         o1,
       )} or ${cellName(o2)}.`,
       roles: [],
-      groups: [baseGroup, relatedGroup, ...outlineGroups],
-      xLines,
+      groups: [baseBoth, relatedBoth, line1, line2, boxOutline],
+      xLines: [strongLine1, strongLine2, weakLine],
     },
     {
       text: `Any cell that sees both ${cellName(o1)} and ${cellName(o2)} must therefore see ${aDigit(
         d,
       )} — so it can't be ${d} itself.`,
       roles: [],
-      groups: [baseGroup, relatedGroup, wash, ...outlineGroups],
-      xLines,
+      groups: [baseBoth, relatedBoth, wash, line1, line2, boxOutline],
+      xLines: [strongLine1, strongLine2, weakLine],
     },
     {
       text: `Remove ${d} from ${cells(elim)}.`,
       roles: [],
-      groups: [baseGroup, relatedGroup, wash, ...outlineGroups],
-      xLines,
+      groups: [baseBoth, relatedBoth, wash, line1, line2, boxOutline],
+      xLines: [strongLine1, strongLine2, weakLine],
     },
   ];
 }
 
-/** XY-Wing / XYZ-Wing: a pivot with two pincers. */
-function wingPivotTemplate(step: Step): Beat[] {
+/** XY-Wing / XYZ-Wing: a pivot with two pincers. Elimination beat washes
+ * every empty cell that sees all the relevant anchors (both pincers for
+ * XY-Wing; the pivot and both pincers for XYZ-Wing) red, not just the ones
+ * that end up losing the candidate — same convention as the other bespoke
+ * templates. */
+function wingPivotTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const pivot = groupCells(step, 'base');
   const pivotDs = groupDigits(step, 'base');
   const pincers = groupCells(step, 'related');
   const z = groupDigits(step, 'related')[0] ?? elimDigit(step);
   const elim = elimCells(step);
   const xyz = pivotDs.length === 3;
+  const anchors = xyz ? [...pivot, ...pincers] : pincers;
+  const anchorSet = new Set(anchors);
+  const wash = {
+    role: 'elimination',
+    cells: commonPeers(anchors).filter((c) => grid.placed[c] === 0 && !anchorSet.has(c)),
+  };
+  const baseGroup = { role: 'base', cells: [...pivot], digits: [...pivotDs] };
+  const relatedGroup = { role: 'related', cells: [...pincers], digits: [z] };
   return [
     {
-      text: `${cells(pivot)} can only be ${digitsOr(pivotDs)} — the pivot of the wing.`,
+      text: `${cells(pivot)} can only be ${digitsOr(pivotDs)}${
+        xyz ? '' : ' — exactly two candidates left'
+      } — the pivot of the wing.`,
       roles: ['base'],
     },
     {
-      text: `Its pincers ${cells(pincers)} each share a digit with the pivot and both also hold ${z}. ${
+      text: `Its pincers ${cells(pincers)} are bivalue too — each down to exactly two candidates, sharing one digit with the pivot and both also holding ${z}. ${
         xyz
           ? `Whatever the pivot turns out to be, one of the pivot or a pincer is ${z}.`
           : `Whichever value the pivot takes, one pincer is forced to ${z}.`
@@ -593,17 +859,24 @@ function wingPivotTemplate(step: Step): Beat[] {
       text: `So any cell that sees ${
         xyz ? 'the pivot and both pincers' : 'both pincers'
       } can't be ${z}.`,
-      roles: ['base', 'related', 'elimination'],
+      roles: [],
+      groups: [baseGroup, relatedGroup, wash],
     },
     {
       text: `Remove ${z} from ${cells(elim)}.`,
-      roles: ['base', 'related', 'elimination'],
+      roles: [],
+      groups: [baseGroup, relatedGroup, wash],
     },
   ];
 }
 
-/** W-Wing: two cells with the same pair, bridged by a strong link. */
-function wingPairTemplate(step: Step): Beat[] {
+/** W-Wing: two cells with the same pair, bridged by a strong link. Solid
+ * line for the strong link between the two link cells; dashed lines for the
+ * two weak links (each pair cell to the link cell it sees) — see the
+ * concept page linked from this lesson's overview. Elimination beat washes
+ * every empty cell that sees both pair cells red, not just the ones that
+ * end up losing the candidate. */
+function wingPairTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const pair = groupCells(step, 'base');
   const pairDs = groupDigits(step, 'base');
   const link = groupCells(step, 'related');
@@ -611,6 +884,24 @@ function wingPairTemplate(step: Step): Beat[] {
   const y = elimDigit(step);
   const x = pairDs.find((v) => v !== y) ?? linkDigit ?? pairDs[0];
   const elim = elimCells(step);
+
+  const [a, b] = pair as [number, number];
+  const [s1, s2] = link as [number, number];
+  // Match each pair cell to the link cell it actually sees (the weak link) —
+  // could be s1-a/s2-b or s1-b/s2-a depending on the puzzle's geometry.
+  const straight = sees(s1, a) && sees(s2, b);
+  const [wa, wb] = straight ? [s1, s2] : [s2, s1];
+  const strongLine = { from: s1, to: s2, style: 'solid' as const };
+  const weakLines = [
+    { from: wa, to: a, style: 'dashed' as const },
+    { from: wb, to: b, style: 'dashed' as const },
+  ];
+  const baseSet = new Set(pair);
+  const wash = {
+    role: 'elimination',
+    cells: commonPeers(pair).filter((c) => grid.placed[c] === 0 && !baseSet.has(c)),
+  };
+
   return [
     {
       text: `${cells(pair)} both hold only ${digitsOr(pairDs)}.`,
@@ -619,14 +910,33 @@ function wingPairTemplate(step: Step): Beat[] {
     {
       text: `${cells(link)} are a strong link on ${x}, connecting the two. If neither of ${cells(pair)} is ${x}, the link forces both of them to be ${y}.`,
       roles: ['base', 'related'],
+      xLines: [strongLine, ...weakLines],
     },
     {
       text: `Either way, ${y} ends up in one of ${cells(pair)} — so any cell seeing both of them can't be ${y}.`,
-      roles: ['base', 'related', 'elimination'],
+      roles: [],
+      groups: [
+        ...(step.highlights.filter((g) => g.role === 'base' || g.role === 'related') as {
+          role: string;
+          cells: number[];
+          digits?: number[];
+        }[]),
+        wash,
+      ],
+      xLines: [strongLine, ...weakLines],
     },
     {
       text: `Remove ${y} from ${cells(elim)}.`,
-      roles: ['base', 'related', 'elimination'],
+      roles: [],
+      groups: [
+        ...(step.highlights.filter((g) => g.role === 'base' || g.role === 'related') as {
+          role: string;
+          cells: number[];
+          digits?: number[];
+        }[]),
+        wash,
+      ],
+      xLines: [strongLine, ...weakLines],
     },
   ];
 }
@@ -790,8 +1100,8 @@ const BY_SLUG: Record<string, Template> = {
   'finned-swordfish': fishTemplate,
   'finned-jellyfish': fishTemplate,
   skyscraper: skyscraperTemplate,
-  '2-string-kite': chainTemplate,
-  'turbot-fish': chainTemplate,
+  '2-string-kite': kiteTemplate,
+  'turbot-fish': turbotFishTemplate,
   'xy-wing': wingPivotTemplate,
   'xyz-wing': wingPivotTemplate,
   'w-wing': wingPairTemplate,
