@@ -96,6 +96,7 @@ function placeTemplate(step: Step): Beat[] {
     beats.push({
       text: `${p} has only one candidate left — every other digit is used by a cell it can see.`,
       roles: [],
+      groups: [{ role: 'focus', cells: [spot.cell], digits: [d] }],
     });
     beats.push({
       text: `So ${p} can only be ${d}.`,
