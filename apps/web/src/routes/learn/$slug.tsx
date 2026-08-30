@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react';
 import { createFileRoute, Link, notFound } from '@tanstack/react-router';
-import { applyStep, serializeGridWithCandidates } from '@sudoku/engine';
+import { applyStep, cellName, serializeGridWithCandidates } from '@sudoku/engine';
 import { getTactic } from '../../features/learn/tactics.js';
 import { familyFor } from '../../features/learn/families.js';
 import { LessonBoard } from '../../features/learn/LessonBoard.js';
 import { TACTIC_OVERVIEW } from '../../features/learn/overviews.js';
 import { parseLessonGrid, toEngineStep } from '../../features/learn/stepAdapter.js';
-import { TIER_LABEL, type TacticDetail } from '../../features/learn/types.js';
+import {
+  TIER_LABEL,
+  type LessonStep,
+  type TacticDetail,
+} from '../../features/learn/types.js';
 
 export const Route = createFileRoute('/learn/$slug')({
   loader: async ({ params }) => {
@@ -31,6 +35,24 @@ const btn =
   'rounded-md px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40';
 const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
 const btnGhost = `${btn} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`;
+
+/** Short confirmation of the board change an "Apply" click just made — kept
+ * separate from `step.explanation` (the reasoning) so applying doesn't just
+ * echo the sentence the learner already read. */
+function appliedSummary(step: LessonStep): string {
+  const placed = step.placements ?? [];
+  const eliminated = step.eliminations ?? [];
+  if (placed.length > 0) {
+    const where = placed.map((p) => `${p.digit} in ${cellName(p.cell)}`).join(', ');
+    return `Placed ${where}.`;
+  }
+  if (eliminated.length > 0) {
+    const digits = [...new Set(eliminated.map((e) => e.digit))];
+    const cells = eliminated.map((e) => cellName(e.cell)).join(', ');
+    return `Removed ${digits.join(', ')} from ${cells}.`;
+  }
+  return 'Applied.';
+}
 
 function ProgressDots({ count, active }: { count: number; active: number }) {
   return (
@@ -121,6 +143,7 @@ function LessonPage() {
             step={revealed ? step : null}
             dimOutsideFocus={revealed && !applied}
             focusMode={tactic.slug === 'bug+1' ? 'empty' : 'cells'}
+            showCandidates={tactic.slug !== 'last-free-cell'}
           />
         </div>
 
@@ -138,7 +161,7 @@ function LessonPage() {
               {!revealed
                 ? `Try to spot the ${tactic.name.toLowerCase()} yourself. Ask for the hint when you want the walkthrough.`
                 : applied && isFinalStep
-                  ? `Applied — ${step.explanation}`
+                  ? appliedSummary(step)
                   : step.explanation}
             </p>
           </div>

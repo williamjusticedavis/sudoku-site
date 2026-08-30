@@ -68,6 +68,10 @@ interface LessonBoardProps {
    * additionally keeps every unsolved cell bright (for BUG+1, whose reasoning
    * is about the whole board). */
   focusMode?: 'cells' | 'empty';
+  /** Hide pencil-mark candidates entirely (default true). Off for lessons like
+   * Last Free Cell, where the technique doesn't involve candidates at all and
+   * showing them implies otherwise. */
+  showCandidates?: boolean;
 }
 
 export function LessonBoard({
@@ -75,6 +79,7 @@ export function LessonBoard({
   step,
   dimOutsideFocus = true,
   focusMode = 'cells',
+  showCandidates = true,
 }: LessonBoardProps) {
   const { placed, candidates, roleMap, markerMap, focus } = useMemo(() => {
     const parsed = parseLessonGrid(grid);
@@ -129,9 +134,9 @@ export function LessonBoard({
           >
             {digit !== 0 ? (
               digit
-            ) : (
+            ) : showCandidates ? (
               <NoteMarks mask={candidates[i] ?? 0} markers={markers} />
-            )}
+            ) : null}
           </div>
         );
       })}

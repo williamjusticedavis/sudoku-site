@@ -101,7 +101,7 @@ const CURRICULUM: CurriculumRow[] = [
     name: 'Last Free Cell',
     tier: 'beginner',
     description:
-      'A unit has only one empty cell left, so the one missing digit goes straight in.',
+      'A unit (row, column, or box) has only one empty cell left, so the one missing digit goes straight in.',
     technique: lastFreeCell,
   },
   {
