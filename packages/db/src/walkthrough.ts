@@ -12,12 +12,26 @@
  *                     the real ones so the last button reads "Apply"
  *
  * Narration is templated per technique-role-family, not hand-written per puzzle
- * (7 shared families cover 24 of 29 tactics; the rest get a small bespoke
- * template). The cells and digits in every beat come straight from the engine
- * Step — only the sentence scaffolding is templated.
+ * (6 shared templates cover 21 of the 28 tactics; the rest get a small
+ * bespoke template each). The cells and digits in every beat come straight
+ * from the engine Step — only the sentence scaffolding is templated.
  */
-import { cellName, type Step } from '@sudoku/engine';
+import {
+  cellName,
+  commonPeers,
+  parseGrid,
+  parseGridWithCandidates,
+  type Grid,
+  type Step,
+} from '@sudoku/engine';
 import type { HintStep } from './index.js';
+
+/** A lesson board string is either a plain 81-char digit string or the
+ * bracket-candidate notation from `serializeGridWithCandidates` — mirrors
+ * the web app's `parseLessonGrid`. */
+function parseBoard(board: string): Grid {
+  return /[[\s]/.test(board) ? parseGridWithCandidates(board) : parseGrid(board);
+}
 
 type Role = 'base' | 'cover' | 'fin' | 'placement' | 'elimination' | 'related' | 'scan';
 
@@ -33,6 +47,8 @@ interface Beat {
    * revealed progressively like highlight roles, a beat either shows them or
    * doesn't). */
   arrows?: { from: number; to: number }[];
+  /** Learn-only decorative lines (green, no arrowhead) — see `HintStep.xLines`. */
+  xLines?: { from: number; to: number }[];
 }
 
 // --- geometry / formatting helpers ----------------------------------------
@@ -48,6 +64,36 @@ function unitLabel(cells: readonly number[], fallback = 'that unit'): string {
   if (cells.every((c) => colOf(c) === colOf(f!))) return `column ${colOf(f!) + 1}`;
   if (cells.every((c) => boxOf(c) === boxOf(f!))) return `box ${boxOf(f!) + 1}`;
   return fallback;
+}
+
+/** All 9 cells of the row/column containing `cell`. */
+function lineCellsOf(cell: number, axis: 'row' | 'col'): number[] {
+  const want = axis === 'row' ? rowOf(cell) : colOf(cell);
+  const out: number[] = [];
+  for (let i = 0; i < 81; i++)
+    if ((axis === 'row' ? rowOf(i) : colOf(i)) === want) out.push(i);
+  return out;
+}
+
+/** All 9 cells of the box containing `cell`. */
+function boxCellsOf(cell: number): number[] {
+  const want = boxOf(cell);
+  const out: number[] = [];
+  for (let i = 0; i < 81; i++) if (boxOf(i) === want) out.push(i);
+  return out;
+}
+
+/** The full 9-cell unit (row, column, or box) every one of `refCells` shares
+ * — same detection order as `unitLabel`, but returns the cells instead of a
+ * string. `null` if they don't all share one (shouldn't happen for a step
+ * whose elimination cells are, by construction, confined to a single unit). */
+function fullUnitCellsOf(refCells: readonly number[]): number[] | null {
+  if (refCells.length === 0) return null;
+  const [f] = refCells;
+  if (refCells.every((c) => rowOf(c) === rowOf(f!))) return lineCellsOf(f!, 'row');
+  if (refCells.every((c) => colOf(c) === colOf(f!))) return lineCellsOf(f!, 'col');
+  if (refCells.every((c) => boxOf(c) === boxOf(f!))) return boxCellsOf(f!);
+  return null;
 }
 
 function joinWith(items: string[], conj: 'and' | 'or'): string {
@@ -156,52 +202,90 @@ function bugTemplate(step: Step): Beat[] {
 }
 
 /** Pointing / Claiming: a digit locked to a box∩line, cleared from the rest.
- * Which one is decided by the slug, not geometry (a 2-cell base shares both a
- * box and a line, so geometry alone is ambiguous). */
-function lockedTemplate(step: Step, slug: string): Beat[] {
+ * One merged lesson, but still two distinct engine techniques under the
+ * hood (see seed.ts's `pointingOrClaiming`) — which direction narrates is
+ * read off the step itself, not the (now-shared) slug. */
+function lockedTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const base = groupCells(step, 'base');
   const d = groupDigits(step, 'base')[0] ?? elimDigit(step);
   const elim = elimCells(step);
   const boxLabel = `box ${boxOf(base[0]!) + 1}`;
+  const baseGroup = { role: 'base', cells: [...base], digits: [d] };
+  const baseSet = new Set(base);
+  const axis = base.every((c) => rowOf(c) === rowOf(base[0]!)) ? 'row' : 'col';
+  const boxCells = boxCellsOf(base[0]!);
+  const lineCells = lineCellsOf(base[0]!, axis);
+  // Every OTHER empty cell of the target unit — not just the ones that
+  // actually hold `d` as a candidate — so the wash makes clear the whole
+  // unit is in play, not only the cells losing something. Base cells keep
+  // their own colour rather than getting swallowed into the wash.
+  const wash = (unit: number[]) => ({
+    role: 'elimination',
+    cells: unit.filter((c) => grid.placed[c] === 0 && !baseSet.has(c)),
+  });
 
-  if (slug === 'pointing') {
+  if (step.technique === 'pointing') {
     // base sits in a box, confined to one line; clear that line.
     const lineLabel = unitLabel([...base, ...elim]);
+    const lineWash = wash(lineCells);
     return [
       {
         text: `In ${boxLabel}, ${d} can only go in ${cells(base)} — and they all lie in ${lineLabel}.`,
-        roles: ['base'],
+        roles: [],
+        groups: [baseGroup, { role: 'outline-unit', cells: boxCells }],
       },
       {
         text: `Wherever ${d} lands in ${boxLabel}, it's somewhere in ${lineLabel}. So ${d} can't be anywhere else in ${lineLabel}.`,
-        roles: ['base', 'elimination'],
+        roles: [],
+        groups: [baseGroup, lineWash, { role: 'outline-unit', cells: lineCells }],
       },
-      { text: `Remove ${d} from ${cells(elim)}.`, roles: ['base', 'elimination'] },
+      {
+        text: `Remove ${d} from ${cells(elim)}.`,
+        roles: [],
+        groups: [baseGroup, lineWash, { role: 'outline-unit', cells: lineCells }],
+      },
     ];
   }
 
   // claiming: base sits in a line, confined to one box; clear the rest of the box.
   const lineLabel = unitLabel(base);
+  const boxWash = wash(boxCells);
   return [
     {
       text: `In ${lineLabel}, ${d} can only go in ${cells(base)} — and they all sit in ${boxLabel}.`,
-      roles: ['base'],
+      roles: [],
+      groups: [baseGroup, { role: 'outline-unit', cells: lineCells }],
     },
     {
       text: `Wherever ${d} lands in ${lineLabel}, it's inside ${boxLabel}. So ${d} can't be anywhere else in ${boxLabel}.`,
-      roles: ['base', 'elimination'],
+      roles: [],
+      groups: [baseGroup, boxWash, { role: 'outline-unit', cells: boxCells }],
     },
-    { text: `Remove ${d} from ${cells(elim)}.`, roles: ['base', 'elimination'] },
+    {
+      text: `Remove ${d} from ${cells(elim)}.`,
+      roles: [],
+      groups: [baseGroup, boxWash, { role: 'outline-unit', cells: boxCells }],
+    },
   ];
 }
 
 /** Naked pair/triple/quad: N cells share N candidates. */
-function nakedSubsetTemplate(step: Step): Beat[] {
+function nakedSubsetTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const base = groupCells(step, 'base');
   const ds = groupDigits(step, 'base');
   const n = base.length;
   const word = n === 2 ? 'pair' : n === 3 ? 'triple' : 'quad';
   const elim = elimCells(step);
+  const baseGroup = { role: 'base', cells: [...base], digits: [...ds] };
+  const baseSet = new Set(base);
+  const unitCells = fullUnitCellsOf([...base, ...elim]) ?? [];
+  // Every OTHER empty cell of the unit — not just the ones that actually
+  // hold one of `ds` as a candidate — so it's visible that the whole unit
+  // is what's constrained, not only the cells that happen to lose something.
+  const wash = {
+    role: 'elimination',
+    cells: unitCells.filter((c) => grid.placed[c] === 0 && !baseSet.has(c)),
+  };
   return [
     {
       text: `${cells(base)} between them hold only the digits ${digits(ds)} — ${n} cells, ${n} candidates. That's a naked ${word}.`,
@@ -213,40 +297,52 @@ function nakedSubsetTemplate(step: Step): Beat[] {
     },
     {
       text: `So none of ${digits(ds)} can appear anywhere else in ${unitLabel([...base, ...elim])}.`,
-      roles: ['base', 'elimination'],
+      roles: [],
+      groups: [baseGroup, wash, { role: 'outline-unit', cells: unitCells }],
     },
     {
       text: `Remove ${digits(ds)} from ${cells(elim)} wherever they appear.`,
-      roles: ['base', 'elimination'],
+      roles: [],
+      groups: [baseGroup, wash, { role: 'outline-unit', cells: unitCells }],
     },
   ];
 }
 
 /** Hidden pair/triple/quad: N digits confined to N cells (no distinct elim
- * cells — the removals sit on the base cells and show as struck candidates). */
+ * cells — the removals sit on the base cells and show as struck candidates).
+ * No red "affected unit" wash like the naked-subset/locked-candidates
+ * templates: every bit of the reasoning happens ON the base cells
+ * themselves, there's no separate set of "other cells in the unit" that's
+ * in play, so there's nothing distinct to wash — just the unit outline, so
+ * "Look at {unit}" has something to point at from the first beat. */
 function hiddenSubsetTemplate(step: Step): Beat[] {
   const base = groupCells(step, 'base');
   const ds = groupDigits(step, 'base');
   const n = base.length;
   const word = n === 2 ? 'pair' : n === 3 ? 'triple' : 'quad';
+  const baseGroup = { role: 'base', cells: [...base], digits: [...ds] };
+  const outline = { role: 'outline-unit', cells: fullUnitCellsOf(base) ?? [] };
   return [
     {
       text: `In ${unitLabel(base)}, the digits ${digits(ds)} can only go in these ${n} cells: ${cells(base)}. That's a hidden ${word}.`,
-      roles: ['base'],
+      roles: [],
+      groups: [baseGroup, outline],
     },
     {
       text: `${n} digits with only ${n} possible homes — they're locked to those cells, one digit each.`,
-      roles: ['base'],
+      roles: [],
+      groups: [baseGroup, outline],
     },
     {
       text: `So every other candidate in ${cells(base)} is impossible and can be struck out.`,
-      roles: ['base'],
+      roles: [],
+      groups: [baseGroup, outline],
     },
   ];
 }
 
 /** Fish (X-Wing / Swordfish / Jellyfish), plain and finned. */
-function fishTemplate(step: Step): Beat[] {
+function fishTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const base = groupCells(step, 'base');
   const d = groupDigits(step, 'base')[0] ?? elimDigit(step);
   const fin = groupCells(step, 'fin');
@@ -264,12 +360,70 @@ function fishTemplate(step: Step): Beat[] {
 
   const baseKind = baseIsRows ? 'rows' : 'columns';
   const coverKind = baseIsRows ? 'columns' : 'rows';
-  const baseNums = [...(baseIsRows ? rowSet : colSet)]
-    .sort((a, b) => a - b)
-    .map((v) => v + 1);
-  const coverNums = [...(baseIsRows ? colSet : rowSet)]
-    .sort((a, b) => a - b)
-    .map((v) => v + 1);
+  const baseVals = [...(baseIsRows ? rowSet : colSet)].sort((a, b) => a - b);
+  const coverVals = [...(baseIsRows ? colSet : rowSet)].sort((a, b) => a - b);
+  const baseNums = baseVals.map((v) => v + 1);
+  const coverNums = coverVals.map((v) => v + 1);
+
+  // Plain (unfinned) X-Wing: outline both base lines from beat 1, draw the
+  // pattern's 4 corner cells as a literal green X (not just "two rows and
+  // two columns" for the learner to cross mentally), and wash the whole
+  // cover lines red as soon as they're named — same "mark everything in
+  // play, not just what ends up eliminated" convention as the naked/hidden
+  // subset and locked-candidates templates.
+  if (n === 2 && fin.length === 0) {
+    const outlineGroups = baseVals.map((v) => ({
+      role: 'outline-unit',
+      cells: lineCellsOf(baseIsRows ? v * 9 : v, baseIsRows ? 'row' : 'col'),
+    }));
+    const baseGroup = { role: 'base', cells: [...base], digits: [d] };
+    // The 4 corners, connected diagonally so opposite corners form an X.
+    const idx = (r: number, c: number) => r * 9 + c;
+    const [r0, r1] = baseIsRows ? baseVals : coverVals;
+    const [c0, c1] = baseIsRows ? coverVals : baseVals;
+    const xLines = [
+      { from: idx(r0!, c0!), to: idx(r1!, c1!) },
+      { from: idx(r0!, c1!), to: idx(r1!, c0!) },
+    ];
+    const coverOutlineGroups = coverVals.map((v) => ({
+      role: 'outline-unit',
+      cells: lineCellsOf(baseIsRows ? v : v * 9, baseIsRows ? 'col' : 'row'),
+    }));
+    const coverCells = new Set(coverOutlineGroups.flatMap((g) => g.cells));
+    const baseSet = new Set(base);
+    // Only empty cells need the red wash — a cell that already holds a digit
+    // isn't a candidate to strike, marking it just adds noise.
+    const wash = {
+      role: 'elimination',
+      cells: [...coverCells].filter((c) => !baseSet.has(c) && grid.placed[c] === 0),
+    };
+    return [
+      {
+        text: `Digit ${d} in ${baseKind} ${digits(baseNums)} only fits in ${coverKind} ${digits(coverNums)}. The 4 cells where they cross — ${cells(base)} — form an X: if ${cellName(idx(r0!, c0!))} is ${d}, ${cellName(idx(r1!, c1!))} must be ${d} too — and if ${cellName(idx(r0!, c1!))} is ${d}, ${cellName(idx(r1!, c0!))} must be ${d} too.`,
+        roles: [],
+        groups: [baseGroup, ...outlineGroups],
+        xLines,
+      },
+      {
+        text: `Each of those ${baseKind} needs a ${d}, and they can only take it in ${coverKind} ${digits(coverNums)} — so those ${coverKind} are spoken for.`,
+        roles: [],
+        groups: [baseGroup, ...outlineGroups],
+        xLines,
+      },
+      {
+        text: `Any other cell in ${coverKind} ${digits(coverNums)}, outside ${baseKind} ${digits(baseNums)}, therefore can't be ${d}.`,
+        roles: [],
+        groups: [baseGroup, wash, ...outlineGroups, ...coverOutlineGroups],
+        xLines,
+      },
+      {
+        text: `Remove ${d} from ${cells(elim)}.`,
+        roles: [],
+        groups: [baseGroup, wash, ...outlineGroups, ...coverOutlineGroups],
+        xLines,
+      },
+    ];
+  }
 
   const beats: Beat[] = [
     {
@@ -329,6 +483,87 @@ function chainTemplate(step: Step): Beat[] {
     {
       text: `Remove ${d} from ${cells(elim)}.`,
       roles: ['base', 'related', 'elimination'],
+    },
+  ];
+}
+
+/** Skyscraper: same 4-cell shape as X-Wing (two parallel strong links) but
+ * the free ends DON'T share the cross-axis line the way X-Wing's do — only
+ * the two inner ("roof") ends share it. Framed explicitly against X-Wing
+ * (which the learner has usually just done) rather than as a generic
+ * "chain", and the final elimination washes every empty cell that sees both
+ * free ends red, not just the ones actually losing the candidate — same
+ * "mark everything in play" convention as the other templates. */
+function skyscraperTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
+  const b = groupCells(step, 'base'); // the two free ends
+  const r = groupCells(step, 'related'); // the two inner ("roof") ends
+  const d = groupDigits(step, 'base')[0] ?? elimDigit(step);
+  const elim = elimCells(step);
+
+  const axis: 'row' | 'col' =
+    rowOf(b[0]!) === rowOf(r[0]!) || rowOf(b[0]!) === rowOf(r[1]!) ? 'row' : 'col';
+  const lineOf = (c: number) => (axis === 'row' ? rowOf(c) : colOf(c));
+  const crossOf = (c: number) => (axis === 'row' ? colOf(c) : rowOf(c));
+  const lineLabel = axis === 'row' ? 'row' : 'column';
+  const crossLabel = axis === 'row' ? 'column' : 'row';
+  const partnerOf = (c: number) => r.find((e) => lineOf(e) === lineOf(c))!;
+
+  const o1 = b[0]!;
+  const e1 = partnerOf(o1);
+  const o2 = b[1]!;
+  const e2 = r.find((e) => e !== e1)!;
+
+  const outlineGroups = [lineCellsOf(o1, axis), lineCellsOf(o2, axis)].map((cs) => ({
+    role: 'outline-unit',
+    cells: cs,
+  }));
+  const baseGroup = { role: 'base', cells: [o1, o2], digits: [d] };
+  const relatedGroup = { role: 'related', cells: [e1, e2], digits: [d] };
+  const xLines = [{ from: e1, to: e2 }];
+  const endsSet = new Set([o1, o2, e1, e2]);
+  const wash = {
+    role: 'elimination',
+    cells: commonPeers([o1, o2]).filter((c) => grid.placed[c] === 0 && !endsSet.has(c)),
+  };
+
+  return [
+    {
+      text: `${cellName(o1)} and ${cellName(e1)} are the only two spots for ${d} in ${lineLabel} ${
+        lineOf(o1) + 1
+      }; ${cellName(e2)} and ${cellName(o2)} are the only two spots in ${lineLabel} ${
+        lineOf(o2) + 1
+      }. That's close to an X-Wing's 4-cell shape — but it doesn't line up the same way: ${crossLabel} ${
+        crossOf(e1) + 1
+      } lines up between the two ${lineLabel}s (${cellName(e1)} and ${cellName(
+        e2,
+      )}), while the outer ends ${cellName(o1)} and ${cellName(o2)} sit in different ${crossLabel}s — so there's no clean box to strike a whole line from.`,
+      roles: [],
+      groups: [baseGroup, relatedGroup, ...outlineGroups],
+      xLines,
+    },
+    {
+      text: `${cellName(e1)} and ${cellName(e2)} share ${crossLabel} ${
+        crossOf(e1) + 1
+      }, so at most one of them is ${d}. Whichever one isn't, its own ${lineLabel} has nowhere else to put ${d} except its outer end — so ${d} always lands in ${cellName(
+        o1,
+      )} or ${cellName(o2)}.`,
+      roles: [],
+      groups: [baseGroup, relatedGroup, ...outlineGroups],
+      xLines,
+    },
+    {
+      text: `Any cell that sees both ${cellName(o1)} and ${cellName(o2)} must therefore see ${aDigit(
+        d,
+      )} — so it can't be ${d} itself.`,
+      roles: [],
+      groups: [baseGroup, relatedGroup, wash, ...outlineGroups],
+      xLines,
+    },
+    {
+      text: `Remove ${d} from ${cells(elim)}.`,
+      roles: [],
+      groups: [baseGroup, relatedGroup, wash, ...outlineGroups],
+      xLines,
     },
   ];
 }
@@ -533,7 +768,7 @@ function alsXzTemplate(step: Step): Beat[] {
 
 // --- dispatch ---------------------------------------------------------------
 
-type Template = (step: Step, slug: string) => Beat[];
+type Template = (step: Step, slug: string, grid: Grid) => Beat[];
 
 const BY_SLUG: Record<string, Template> = {
   'last-free-cell': placeTemplate,
@@ -542,7 +777,6 @@ const BY_SLUG: Record<string, Template> = {
   'last-possible-number': placeTemplate,
   'bug+1': bugTemplate,
   pointing: lockedTemplate,
-  claiming: lockedTemplate,
   'naked-pair': nakedSubsetTemplate,
   'naked-triple': nakedSubsetTemplate,
   'naked-quad': nakedSubsetTemplate,
@@ -555,7 +789,7 @@ const BY_SLUG: Record<string, Template> = {
   'finned-x-wing': fishTemplate,
   'finned-swordfish': fishTemplate,
   'finned-jellyfish': fishTemplate,
-  skyscraper: chainTemplate,
+  skyscraper: skyscraperTemplate,
   '2-string-kite': chainTemplate,
   'turbot-fish': chainTemplate,
   'xy-wing': wingPivotTemplate,
@@ -571,15 +805,19 @@ const BY_SLUG: Record<string, Template> = {
  * Build the beat list for one puzzle. `gridBefore` (the placed-digit string at
  * the firing position, or undefined when the step fires on the raw puzzle) is
  * copied onto every beat so the lesson board shows the same position throughout.
+ * `boardGrid` is that same position (or the raw puzzle, when `gridBefore` is
+ * undefined) — parsed so templates that need to know which cells are already
+ * placed (e.g. locked-candidates' whole-line wash) can ask.
  */
 export function buildWalkthrough(
   step: Step,
   slug: string,
   gridBefore: string | undefined,
+  boardGrid: string,
 ): HintStep[] {
   const template = BY_SLUG[slug];
   if (!template) throw new Error(`[walkthrough] no template for "${slug}"`);
-  const beats = template(step, slug);
+  const beats = template(step, slug, parseBoard(boardGrid));
 
   return beats.map((beat, i) => {
     const last = i === beats.length - 1;
@@ -605,6 +843,7 @@ export function buildWalkthrough(
     };
     if (gridBefore) hs.gridBefore = gridBefore;
     if (beat.arrows) hs.arrows = beat.arrows;
+    if (beat.xLines) hs.xLines = beat.xLines;
     return hs;
   });
 }

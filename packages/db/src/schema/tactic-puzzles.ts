@@ -31,6 +31,11 @@ export interface HintStep {
    * spell out which cell each part of it is responsible for — see engine's
    * `Arrow`. Optional; most techniques don't need it. */
   arrows?: { from: number; to: number }[];
+  /** Learn-only decorative lines (green, no arrowhead) connecting cells that
+   * form a shape worth naming out loud — e.g. X-Wing's four corner cells
+   * literally drawn as an X. Unlike `arrows`, these aren't "this blocks
+   * that": just a visual aid, so kept as a separate field. */
+  xLines?: { from: number; to: number }[];
 }
 
 /** Curated example puzzles per tactic (at least 3 each). */

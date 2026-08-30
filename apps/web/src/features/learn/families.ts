@@ -14,10 +14,6 @@ export const FAMILIES: Family[] = [
     label: 'Two ways to spot a hidden single',
     slugs: ['cross-hatching', 'last-possible-number'],
   },
-  {
-    label: 'Locked candidates, two directions',
-    slugs: ['pointing', 'claiming'],
-  },
 ];
 
 /** The family a tactic belongs to, or undefined. */

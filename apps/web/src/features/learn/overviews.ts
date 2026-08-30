@@ -10,21 +10,19 @@ export const TACTIC_OVERVIEW: Record<string, string> = {
   'last-possible-number':
     'Same underlying fact as cross-hatching — a digit with only one legal cell left in a unit — but found by reading the pencil marks instead of scanning lines. Look through a row, column, or box for a digit that appears as a candidate in just one of its cells. That cell is forced.',
   pointing:
-    'When a digit’s only remaining spots inside a box all fall on one row or one column, the digit is going to land somewhere on that line no matter which spot it takes. So it cannot appear anywhere else along that row or column, even outside the box — remove it from those cells.',
-  claiming:
-    'The mirror image of pointing. When a digit’s only remaining spots inside a row or column all fall within a single box, the digit must end up in that box. Remove it from the box’s other cells.',
+    'A box and a line (row or column) cross at 2–3 cells. Pointing: when a digit’s only remaining spots inside the box all fall on the line, it’s going to land somewhere on that line no matter which spot it takes — remove it from the rest of the line. Claiming is the mirror image: when the digit’s only remaining spots on the line all fall inside the box, remove it from the rest of the box instead. Same overlap, same logic, opposite direction.',
   'naked-pair':
-    'Two cells in the same unit whose pencil marks are the same two digits — nothing else. Those two digits have to fill those two cells between them, so neither digit can appear anywhere else in the unit. Naked triples and quads are the same idea with three or four cells sharing three or four digits.',
+    'Two cells in the same unit whose pencil marks are the same two digits — nothing else. Those two digits have to fill those two cells between them, so neither digit can appear anywhere else in the unit. Naked triples and quads are the same idea with three or four cells sharing three or four digits. A naked pair and a hidden pair are really the same fact seen from opposite sides: in a naked pair, two cells are boxed into two digits; in a hidden pair, two digits are boxed into two cells. Find one and the other is often sitting right there too.',
   'naked-triple':
-    'Three cells in one unit whose candidates, pooled together, are just three digits. Those three digits are locked into those three cells in some order, so they leave every other cell of the unit. Each individual cell may show only two of the three digits — what matters is the pooled set.',
+    'Three cells in one unit whose candidates, pooled together, are just three digits. Those three digits are locked into those three cells in some order, so they leave every other cell of the unit. Each individual cell may show only two of the three digits — what matters is the pooled set. Same relationship as pair and quad: a naked triple (three cells cornered into three digits) and a hidden triple (three digits cornered into three cells) are two views of one underlying lockup.',
   'naked-quad':
-    'Four cells in one unit whose combined candidates are only four digits. Those four digits must occupy those four cells, so they can be removed from the rest of the unit. Rare, and easy to miss because no single cell has to contain all four.',
+    'Four cells in one unit whose combined candidates are only four digits. Those four digits must occupy those four cells, so they can be removed from the rest of the unit. Rare, and easy to miss because no single cell has to contain all four. As with pair and triple, this is the cells-first view of the same lockup a hidden quad sees digits-first.',
   'hidden-pair':
-    'Two digits that, within one unit, can only go in the same two cells. Those cells must take those two digits, so every other candidate in them is impossible and gets struck out. The pair is “hidden” because those cells usually show extra candidates that mask it.',
+    'Two digits that, within one unit, can only go in the same two cells. Those cells must take those two digits, so every other candidate in them is impossible and gets struck out. The pair is “hidden” because those cells usually show extra candidates that mask it. It’s the flip side of a naked pair — same two cells, same two digits, just spotted by tracking where the digits can go instead of what the cells contain.',
   'hidden-triple':
-    'Three digits confined to the same three cells of a unit. Those cells are reserved for those digits, so all other candidates in them can be removed — even though each cell may also list digits that belong elsewhere.',
+    'Three digits confined to the same three cells of a unit. Those cells are reserved for those digits, so all other candidates in them can be removed — even though each cell may also list digits that belong elsewhere. Flip side of a naked triple: same three cells, same three digits, found by following the digits instead of the cells.',
   'hidden-quad':
-    'Four digits that can only be placed in the same four cells of a unit. Those four cells belong to those four digits; clear every other candidate from them.',
+    'Four digits that can only be placed in the same four cells of a unit. Those four cells belong to those four digits; clear every other candidate from them. Flip side of a naked quad, digits-first instead of cells-first — same underlying lockup either way.',
   'x-wing':
     'Pick a digit. Find two rows where it has candidates in only the same two columns. Those two columns now each need the digit in one of those two rows, so the digit is used up in both columns — it can be removed from every other cell of those columns. Works with rows and columns swapped.',
   swordfish:

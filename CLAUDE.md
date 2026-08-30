@@ -134,16 +134,16 @@ worth blocking on.
 
 **Intermediate**
 
-1. Pointing — _family: Locked Candidates_ (with Claiming)
-2. Claiming — _family: Locked Candidates_ (with Pointing)
-3. Naked Pair
-4. Naked Triple
-5. Naked Quad
-6. Hidden Pair
-7. Hidden Triple
-8. Hidden Quad
-9. X-Wing
-10. Skyscraper
+1. Pointing/Claiming — merged lesson (2026-08-30, supersedes the original
+   split below — see note after this list)
+2. Naked Pair
+3. Naked Triple
+4. Naked Quad
+5. Hidden Pair
+6. Hidden Triple
+7. Hidden Quad
+8. X-Wing
+9. Skyscraper
 
 **Advanced**
 
@@ -169,10 +169,25 @@ worth blocking on.
 **Technique families**: two or more tactics that are separate, fully
 independent lessons (own progress bar, own practice puzzles) but share the
 same underlying engine technique, and should get a shared visual
-grouping/label in the Learn tier layout. Known families: Locked Candidates
-(Pointing + Claiming — mirror-image logic), Hidden Single split
-(Cross-Hatching + Last Possible Number — see below). Exact grouping UI still
-open; decide when building the tier layout.
+grouping/label in the Learn tier layout. Known families: Hidden Single split
+(Cross-Hatching + Last Possible Number — see below). Locked Candidates
+(Pointing + Claiming) is no longer one of these — see the merge note below,
+it's a single lesson now, not a family of two.
+
+**Pointing/Claiming — merged into one lesson (2026-08-30).** Originally
+seeded as two separate tactics rows sharing a "family" grouping (mirror-image
+directions of the same locked-candidates idea), same treatment as the Hidden
+Single split. Unlike that split, though, the two directions don't need
+separate vocabulary to recognize by eye — a learner sees the same box∩line
+overlap either way, just eliminating on whichever side is narrower — so
+keeping them as two independent lessons (two progress bars, two favorites)
+added bookkeeping without adding teaching value. Merged into a single
+`tactics` row, slug `pointing`, name "Pointing/Claiming"; its curated
+puzzles cover both directions (see `packages/db/src/seed.ts`). The engine
+still exposes `pointing` and `claiming` as two fully independent techniques
+(untouched, still both in the solver's `TECHNIQUES` list) — only the Learn
+curriculum layer merged; a `pointingOrClaiming` combinator in seed.ts is
+what the lesson's puzzles actually fire against.
 
 **Hidden Single — retired as a standalone lesson.** Cross-Hatching and Last
 Possible Number are the two beginner-friendly ways of noticing the fact the

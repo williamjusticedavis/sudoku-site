@@ -83,6 +83,14 @@ const { db, client } = await import('./client.js');
 
 type Tier = NewTactic['tier'];
 
+// Pointing and Claiming are one merged lesson (mirror-image directions of
+// the same locked-candidates idea), but stay two fully separate engine
+// techniques — each still runs on its own in the solver's TECHNIQUES list,
+// untouched. This combinator is Learn-only: it's what locates where the
+// *lesson* next has something to show, trying pointing first (arbitrary;
+// a given box+digit can only ever match one direction, never both).
+const pointingOrClaiming: Technique = (grid) => pointing(grid) ?? claiming(grid);
+
 interface CurriculumRow {
   slug: string;
   name: string;
@@ -131,19 +139,11 @@ const CURRICULUM: CurriculumRow[] = [
   // -- Intermediate -------------------------------------------------------
   {
     slug: 'pointing',
-    name: 'Pointing',
+    name: 'Pointing/Claiming',
     tier: 'intermediate',
     description:
-      'A digit confined to one box also sits in a single row or column; remove it from the rest of that line.',
-    technique: pointing,
-  },
-  {
-    slug: 'claiming',
-    name: 'Claiming',
-    tier: 'intermediate',
-    description:
-      'A digit confined to one row or column within a box; remove it from the rest of that box.',
-    technique: claiming,
+      "A box and a line cross at a few cells. When a digit's remaining spots in the box all fall in that overlap, remove it from the rest of the line — or, the other way round, when its spots on the line all fall there, remove it from the rest of the box.",
+    technique: pointingOrClaiming,
   },
   {
     slug: 'naked-pair',
@@ -374,15 +374,22 @@ const PUZZLES: Record<string, [string, string, string]> = {
     // has neither a second hidden single nor a naked single.
     '100580007007000000082000000300400500490000010705069800000000623000810000000900000',
   ],
+  // Pointing and Claiming merged into one lesson (packages/db/src/seed.ts's
+  // `pointingOrClaiming`): puzzle 0 (teaching) and puzzle 1 (practice) are
+  // pointing-shaped — a box's candidates confined to one line, cleared from
+  // the rest of the line; puzzle 2 (practice) is claiming-shaped — a line's
+  // candidates confined to one box, cleared from the rest of the box. So the
+  // set demonstrates both directions. All three mined with mine-pointing.ts:
+  // zero beginner-tier moves present, exactly one locked-candidates
+  // opportunity at the fired position.
   pointing: [
     '000000000000000001001002030000040000040560700080000020002000000003001000700080004',
-    '000000000000000001002003040000002300050000000410000006000560000004010000007000820',
-    '000000000000000001002003040000005000030000600700010008000006250080090000100000030',
-  ],
-  claiming: [
-    '000000000000000001001002030000040000040560700080000020002000000003001000700080004',
-    '000000000000000001002003040000005000030000600700010008000006250080090000100000030',
-    '000000000000000001002003040000005020060007000810000000000010306000080000009600200',
+    // Pointing-shaped: box 1's only spots for 4 all sit in col 2 → clear 4
+    // from the rest of col 2.
+    '000010200003000400102800007000090020020070001600400709030000600060103000400700000',
+    // Claiming-shaped: row 5's only spots for 4 all sit in box 6 → clear 4
+    // from the rest of box 6.
+    '000105000310042090047000000700000003002908700080500009000000100400080060000406030',
   ],
   'naked-pair': [
     '000000000000000012000034000000000005003160000007800400000009030090005000510000000',
@@ -400,10 +407,13 @@ const PUZZLES: Record<string, [string, string, string]> = {
     // fires-only, not proven necessary
     '000000000000000001002034000000000020050000034600100000000620700000800050074000000',
   ],
+  // All three replaced (mine-hidden-subset.ts): the originals each had a
+  // hidden single sitting on the board — puzzle 0 also had a naked single,
+  // puzzles 1/2 explicitly flagged. These have zero beginner-tier moves.
   'hidden-pair': [
-    '000000000000000001001002030000040000040560700080000020002000000003001000700080004',
-    '000000000000000001002003040000005000030000600700010008000006250080090000100000030',
-    '000000000000000001002034000000002000040050000600100007000008030003000540100600000',
+    '087025000020001000300700000070080003100004005054007006000009050040000002000000690',
+    '004109600700000105008000040000200090020900500000040008000000003056000000800470000',
+    '000030051500007009030000800000120000004000000060089003090608020300000040016000080',
   ],
   'hidden-triple': [
     '000000000000000012003004005000006300010000070200000000000070000000800006570120000',
@@ -416,7 +426,11 @@ const PUZZLES: Record<string, [string, string, string]> = {
     '000010003400007201002030650900060000010000009003720800000000000680540002000000146',
   ],
   'x-wing': [
-    '000000000000000001002003040000002300050000000410000006000560000004010000007000820',
+    // Rows 1,7 / cols 5,9 — spread far apart (different box bands and
+    // stacks), not the original's adjacent rows 4-5 / cols 3-4, which read
+    // as "a box" to a new learner instead of the pattern's real row/column
+    // shape. Mined via mine-x-wing.ts.
+    '437006000060950004000030000090000000000700020000210703049000080001000009806000051',
     '000000000000000012000034000000000300005000006078600000000280070340000020900000000',
     '000000000000000012003004000000000003004050600070010000000806400020000000510000800',
   ],
@@ -537,10 +551,22 @@ const PUZZLES: Record<string, [string, string, string]> = {
 // criterion the puzzle set was verified against.
 const TEACHING_RELABELS = new Set(['cross-hatching', 'last-possible-number']);
 
-/** The technique to exclude from a lead-up. For the teaching relabels that's
- * `hiddenSingle` (they resolve the same fact); otherwise the target itself. */
-function excluded(slug: string, target: Technique): Technique {
-  return TEACHING_RELABELS.has(slug) ? hiddenSingle : target;
+/** The technique(s) to exclude from a lead-up. Usually just the target
+ * itself, but a slug whose `technique` is a combinator over several real
+ * engine techniques (not itself a member of `TECHNIQUES`) needs each of
+ * those excluded individually — filtering `TECHNIQUES` against the
+ * combinator function is a no-op, since the combinator was never IN that
+ * array, and the underlying techniques would then wrongly stay available as
+ * ordinary lead-up moves and consume/reshape the puzzle before the
+ * combinator's own check ever runs. (Caught via `pointing`'s merged
+ * `pointingOrClaiming`: without this, a mined pointing-shaped puzzle could
+ * get its pointing move silently eaten by lead-up, leaving only a claiming
+ * move by the time the target check ran — the two curated puzzles quietly
+ * swapped which direction they demonstrated.) */
+function excluded(slug: string, target: Technique): Technique[] {
+  if (TEACHING_RELABELS.has(slug)) return [hiddenSingle];
+  if (slug === 'pointing') return [pointing, claiming];
+  return [target];
 }
 
 type Fired = { step: Step; gridBefore: string | undefined };
@@ -554,7 +580,8 @@ type Fired = { step: Step; gridBefore: string | undefined };
  * this position is the natural one for the technique — for the advanced tactics
  * that means no strictly-simpler move is left unplayed there. */
 function fireTarget(puzzle: string, slug: string, target: Technique): Fired | null {
-  const leadUp = TECHNIQUES.filter((t) => t !== excluded(slug, target));
+  const excl = excluded(slug, target);
+  const leadUp = TECHNIQUES.filter((t) => !excl.includes(t));
   const grid = parseGrid(puzzle);
   for (let i = 0; i < 400; i++) {
     const step = target(grid);
@@ -578,7 +605,12 @@ function buildStepData(slug: string, puzzle: string): HintStep[] {
         `puzzle/tactic mismatch, needs a replacement grid.`,
     );
   }
-  return buildWalkthrough(attempt.step, slug, attempt.gridBefore);
+  return buildWalkthrough(
+    attempt.step,
+    slug,
+    attempt.gridBefore,
+    attempt.gridBefore ?? puzzle,
+  );
 }
 
 function solutionFor(puzzle: string): string {
@@ -596,6 +628,19 @@ function solutionFor(puzzle: string): string {
 async function main(): Promise<void> {
   let tacticCount = 0;
   let puzzleCount = 0;
+
+  // Self-cleaning: a slug dropped from CURRICULUM (e.g. Claiming folding
+  // into the merged Pointing/Claiming row) would otherwise linger forever —
+  // upserts only ever add/update, never remove. Cascades to that tactic's
+  // puzzles/progress/favorites.
+  const currentSlugs = CURRICULUM.map((r) => r.slug);
+  const stale = await db.query.tactics.findMany({
+    where: (t, { notInArray }) => notInArray(t.slug, currentSlugs),
+  });
+  for (const t of stale) {
+    await db.delete(tactics).where(eq(tactics.id, t.id));
+    console.log(`  removed stale tactic: ${t.slug}`);
+  }
 
   for (let i = 0; i < CURRICULUM.length; i++) {
     const row = CURRICULUM[i]!;

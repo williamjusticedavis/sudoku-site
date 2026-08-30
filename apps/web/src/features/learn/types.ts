@@ -26,6 +26,10 @@ export interface LessonStep {
    * cell") for a step where the highlighted region alone doesn't spell out
    * which specific cell each part is responsible for. */
   arrows?: { from: number; to: number }[];
+  /** Learn-only decorative lines (green, no arrowhead) connecting cells that
+   * form a shape worth naming out loud — e.g. X-Wing's four corner cells
+   * drawn as an X. Not "this blocks that" like `arrows` — just a visual aid. */
+  xLines?: { from: number; to: number }[];
 }
 
 export interface LessonPuzzle {

@@ -108,24 +108,10 @@ interface LessonBoardProps {
   interactive?: boolean;
 }
 
-/** Cells belonging to "the unit" a beat's text is pointing at: the spot cell
- * (via 'placement' or its pre-placement stand-in 'focus') plus its unit-mates
- * ('related'). Deliberately excludes 'scan' and other supporting roles —
- * those are extra cells brought in to explain *why*, not part of the named
- * unit itself, and would throw off the full-unit-or-nothing check below. */
-function unitMemberCells(step: LessonStep): number[] {
-  const roles = new Set(['related', 'placement', 'focus']);
-  const cells: number[] = [];
-  for (const g of step.highlights ?? []) if (roles.has(g.role)) cells.push(...g.cells);
-  for (const p of step.placements ?? []) cells.push(p.cell);
-  return cells;
-}
-
-/** If a step's unit-member cells are exactly one full row, column, or box,
- * the CSS grid-line span framing it — so the board can draw a light outline
- * around "the unit" a beat's text is pointing at (e.g. "Look at column 9").
- * Anything short of a full unit (most fish/wing patterns) yields no outline,
- * which is the right default for them. */
+/** If a set of cells is exactly one full row, column, or box, the CSS
+ * grid-line span framing it — so the board can draw a light outline around
+ * "the unit" a beat's text is pointing at (e.g. "Look at column 9"). Anything
+ * short of a full unit yields no outline. */
 function unitOutlineSpan(
   cells: readonly number[],
 ): { gridRow: string; gridColumn: string } | null {
@@ -156,6 +142,31 @@ function unitOutlineSpan(
     };
   }
   return null;
+}
+
+/** Every outline to draw for a step. Two paths:
+ *  - A template that already knows exactly which unit(s) it wants framed
+ *    hands them over explicitly as one or more `outline-unit`-role groups
+ *    (e.g. X-Wing's two base rows, drawn as two separate outlines at once —
+ *    locked-candidates/naked-subset/hidden-subset use just one).
+ *  - Otherwise, fall back to the legacy merge of 'related'/'placement'/
+ *    'focus' cells into a single implied unit (cross-hatching/last-possible-
+ *    number, which never set 'outline-unit' explicitly).
+ * Each candidate cell set only produces an outline if it's exactly one full
+ * row/column/box — most fish/wing patterns aren't, and get none. */
+function unitOutlineSpans(step: LessonStep): { gridRow: string; gridColumn: string }[] {
+  const explicitGroups = (step.highlights ?? []).filter((g) => g.role === 'outline-unit');
+  if (explicitGroups.length > 0) {
+    return explicitGroups
+      .map((g) => unitOutlineSpan(g.cells))
+      .filter((s): s is { gridRow: string; gridColumn: string } => s !== null);
+  }
+  const roles = new Set(['related', 'placement', 'focus']);
+  const cells: number[] = [];
+  for (const g of step.highlights ?? []) if (roles.has(g.role)) cells.push(...g.cells);
+  for (const p of step.placements ?? []) cells.push(p.cell);
+  const span = unitOutlineSpan(cells);
+  return span ? [span] : [];
 }
 
 /** Center of cell `i` in a 9×9 unit-square coordinate space (1 unit = 1 cell). */
@@ -192,6 +203,7 @@ export function LessonBoard({
 }: LessonBoardProps) {
   const arrowMarkerId = useId();
   const arrows = step?.arrows ?? [];
+  const xLines = step?.xLines ?? [];
 
   const [selected, setSelected] = useState<number | null>(null);
   const [digitHighlight, setDigitHighlight] = useState<number | null>(null);
@@ -202,7 +214,7 @@ export function LessonBoard({
     setSelected(null);
     setDigitHighlight(null);
   }, [grid, interactive]);
-  const { placed, candidates, roleMap, markerMap, focus, unitOutline } = useMemo(() => {
+  const { placed, candidates, roleMap, markerMap, focus, unitOutlines } = useMemo(() => {
     const parsed = parseLessonGrid(grid);
     const engineStep = step ? toEngineStep(step) : null;
     const frameCells = step ? stepCells(step) : [];
@@ -219,7 +231,7 @@ export function LessonBoard({
       roleMap: buildHighlightMap(engineStep),
       markerMap: buildCandidateMarkers(engineStep),
       focus: focusSet,
-      unitOutline: step ? unitOutlineSpan(unitMemberCells(step)) : null,
+      unitOutlines: step ? unitOutlineSpans(step) : [],
     };
   }, [grid, step, dimOutsideFocus, focusMode]);
 
@@ -322,20 +334,22 @@ export function LessonBoard({
           </div>
         );
       })}
-      {unitOutline && (
+      {unitOutlines.map((span, i) => (
         // Absolutely positioned so it's sized against the grid lines named in
-        // `unitOutline` without joining auto-placement — a normal grid item
+        // `span` without joining auto-placement — a normal grid item
         // spanning a whole row/column/box would otherwise compete with the 81
         // cell divs for space and shove them out of position. `inset-0` is
         // required too: grid-row/grid-column alone only anchor an abspos
         // item's static position, they don't stretch it — without inset-0 it
         // collapses to a 0×0 box (just the border, a stray little square).
+        // Usually just one span; X-Wing draws two at once (both base lines).
         <div
+          key={i}
           aria-hidden
           className="pointer-events-none absolute inset-0 border-2 border-cyan-600 dark:border-cyan-400"
-          style={unitOutline}
+          style={span}
         />
-      )}
+      ))}
       {arrows.length > 0 && (
         // Cross-hatching: a line from each blocking digit straight to the
         // one cell it rules out — concrete instead of leaving the learner to
@@ -372,6 +386,32 @@ export function LessonBoard({
                 strokeWidth="0.07"
                 className="stroke-rose-600 dark:stroke-rose-400"
                 markerEnd={`url(#${arrowMarkerId})`}
+              />
+            );
+          })}
+        </svg>
+      )}
+      {xLines.length > 0 && (
+        // X-Wing: connect the pattern's 4 corner cells corner-to-corner so
+        // the shape reads literally as an X, not just two highlighted rows
+        // and two highlighted columns the learner has to mentally cross.
+        // Plain lines, no arrowhead — this isn't "blocks that", just a shape.
+        <svg
+          aria-hidden
+          viewBox="0 0 9 9"
+          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+        >
+          {xLines.map((l, i) => {
+            const seg = arrowSegment(l.from, l.to);
+            return (
+              <line
+                key={i}
+                x1={seg.x1}
+                y1={seg.y1}
+                x2={seg.x2}
+                y2={seg.y2}
+                strokeWidth="0.06"
+                className="stroke-emerald-600 dark:stroke-emerald-400"
               />
             );
           })}
