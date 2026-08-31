@@ -155,6 +155,19 @@ function LearnOverview() {
         </p>
       </header>
 
+      <Link
+        to="/learn/basics"
+        className="mb-8 flex flex-col gap-1 rounded-lg border border-dashed border-neutral-300 bg-white p-4 transition-colors hover:border-neutral-400 hover:bg-neutral-50/60 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-600 dark:hover:bg-neutral-800/40"
+      >
+        <div className="font-semibold text-neutral-900 dark:text-neutral-100">
+          New to sudoku? Start here
+        </div>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          How Sudoku Works — the single rule, what &ldquo;solved&rdquo; means, and the
+          words (unit, candidate) every lesson below assumes you know.
+        </p>
+      </Link>
+
       <div className="flex flex-col gap-10">
         {TIER_ORDER.map((tier) => {
           const list = byTier[tier];
