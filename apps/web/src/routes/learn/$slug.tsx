@@ -6,6 +6,7 @@ import { familyFor } from '../../features/learn/families.js';
 import { LessonBoard } from '../../features/learn/LessonBoard.js';
 import { TACTIC_OVERVIEW } from '../../features/learn/overviews.js';
 import { parseLessonGrid, toEngineStep } from '../../features/learn/stepAdapter.js';
+import { NotFound } from '../../features/shell/NotFound.js';
 import {
   TIER_LABEL,
   type LessonStep,
@@ -20,14 +21,10 @@ export const Route = createFileRoute('/learn/$slug')({
   },
   component: LessonPage,
   notFoundComponent: () => (
-    <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
-      <p className="text-neutral-600 dark:text-neutral-400">
-        No lesson found.{' '}
-        <Link to="/learn" className="text-blue-600 hover:underline dark:text-blue-400">
-          Back to Learn
-        </Link>
-      </p>
-    </main>
+    <NotFound
+      title="Lesson not found"
+      message="There's no lesson at that address. It may have been renamed, or the link may have a typo in it."
+    />
   ),
 });
 
