@@ -17,6 +17,27 @@ body {
   height: 100%;
 }
 
+/* Tailwind's preflight pins this to 100%, which also switches off the OS/browser
+   text-scaling accessibility setting (Android Chrome implements that slider via
+   text autosizing), so the site ignored a user's larger-text preference.
+   Re-enable it. The preflight's stated reason — iOS inflating text on
+   orientation change — only applies to pages without a responsive viewport, and
+   we ship `width=device-width, initial-scale=1`. */
+html {
+  -webkit-text-size-adjust: auto;
+  text-size-adjust: auto;
+}
+
+/* Opt a subtree back out of that scaling. The sudoku boards size their digits
+   off the cell itself (container-query units) so they fit exactly; multiplying
+   that by a user scale factor would push digits out of their cells. Applied to
+   the boards only — surrounding chrome and prose still scale. Inherited, so
+   setting it on the board root covers the cells and their note marks. */
+@utility text-scale-fixed {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   @apply bg-neutral-50 text-neutral-900 antialiased;
 }

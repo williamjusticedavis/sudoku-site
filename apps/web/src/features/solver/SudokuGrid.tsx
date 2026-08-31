@@ -307,7 +307,7 @@ export function SudokuGrid({
       tabIndex={0}
       onKeyDown={handleKey}
       aria-label="Sudoku grid"
-      className="grid aspect-square w-full max-w-[560px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 outline-none [container-type:size] lg:w-[min(100%,100cqh)] lg:max-w-none dark:border-neutral-300"
+      className="text-scale-fixed grid aspect-square w-full max-w-[560px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 outline-none [container-type:size] lg:w-[min(100%,100cqh)] lg:max-w-none dark:border-neutral-300"
     >
       {Array.from({ length: 81 }, (_, i) => (
         <Cell
