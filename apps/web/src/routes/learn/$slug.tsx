@@ -21,6 +21,11 @@ export const Route = createFileRoute('/learn/$slug')({
     return tactic;
   },
   component: LessonPage,
+  // Every lesson is the same route with a different param, so moving between
+  // them (the next/previous links) reuses the mounted component and only swaps
+  // loader data — leaving puzzleIndex/stepIndex/applied/revealed pointing at
+  // the lesson you just left. Keying the remount on the slug resets them.
+  remountDeps: ({ params }) => params.slug,
   // Declared per route rather than router-wide: a defaultPendingComponent also
   // wraps the root match in <Suspense>, which breaks hydration (see router.tsx).
   pendingComponent: PageLoading,
