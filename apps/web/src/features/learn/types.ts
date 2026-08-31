@@ -48,8 +48,20 @@ export interface TacticSummary {
   description: string;
 }
 
+/** Just enough to render a link to a neighbouring tactic. */
+export interface TacticLink {
+  slug: string;
+  name: string;
+}
+
 export interface TacticDetail extends TacticSummary {
   puzzles: LessonPuzzle[];
+  /** Neighbours in curriculum order, so a learner can move between lessons
+   * without going back through the tier overview. These cross tier boundaries —
+   * the last Beginner tactic's `next` is the first Intermediate one — and are
+   * null at the two ends of the curriculum. */
+  prev: TacticLink | null;
+  next: TacticLink | null;
 }
 
 export const TIER_ORDER: Tier[] = ['beginner', 'intermediate', 'advanced', 'master'];

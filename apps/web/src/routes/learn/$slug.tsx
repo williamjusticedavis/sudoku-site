@@ -46,6 +46,8 @@ const btn =
   'rounded-md px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40';
 const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
 const btnGhost = `${btn} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`;
+const tacticNavLink =
+  'flex max-w-[48%] flex-col gap-0.5 rounded-md px-3 py-2 text-sm text-neutral-800 transition-colors hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800';
 
 /** Short confirmation of the board change an "Apply" click just made — kept
  * separate from `step.explanation` (the reasoning) so applying doesn't just
@@ -63,6 +65,54 @@ function appliedSummary(step: LessonStep): string {
     return `Removed ${digits.join(', ')} from ${cells}.`;
   }
   return 'Applied.';
+}
+
+/**
+ * Puzzle-level navigation for a tactic's curated examples.
+ *
+ * Distinct from `ProgressDots` below, which tracks beats *within* one puzzle's
+ * walkthrough. Before this the flow only ran forwards (Apply → next puzzle), so
+ * someone on puzzle 3 had no way back to re-read example 1 without leaving the
+ * lesson. Numbered rather than dotted precisely so it doesn't read as more step
+ * progress.
+ */
+function PuzzleTabs({
+  count,
+  active,
+  onSelect,
+}: {
+  count: number;
+  active: number;
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-1.5"
+      aria-label="Choose a puzzle"
+      role="tablist"
+    >
+      {Array.from({ length: count }, (_, i) => {
+        const current = i === active;
+        return (
+          <button
+            key={i}
+            type="button"
+            role="tab"
+            aria-selected={current}
+            aria-label={`Puzzle ${i + 1} of ${count}`}
+            onClick={() => onSelect(i)}
+            className={`h-7 w-7 rounded-md text-sm font-medium transition-colors ${
+              current
+                ? 'bg-blue-600 text-white'
+                : 'border border-neutral-300 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800'
+            }`}
+          >
+            {i + 1}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function ProgressDots({ count, active }: { count: number; active: number }) {
@@ -132,10 +182,19 @@ function LessonPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8">
+      <Link
+        to="/learn"
+        className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden className="h-4 w-4 fill-none stroke-current">
+          <path d="M10 3 5 8l5 5" strokeWidth="1.75" strokeLinecap="round" />
+        </svg>
+        All lessons
+      </Link>
+      {/* Tier and family are context, not destinations — plain text, so the
+          back link above is the only thing that looks clickable here. */}
       <div className="mb-1 flex items-center gap-2 text-xs font-medium tracking-wide text-neutral-500 uppercase dark:text-neutral-400">
-        <Link to="/learn" className="hover:text-neutral-800 dark:hover:text-neutral-200">
-          {TIER_LABEL[tactic.tier]}
-        </Link>
+        <span>{TIER_LABEL[tactic.tier]}</span>
         {family && (
           <>
             <span aria-hidden>·</span>
@@ -160,13 +219,18 @@ function LessonPage() {
         </div>
 
         <div className="flex flex-col gap-5">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-neutral-500 dark:text-neutral-400">
-              Puzzle {puzzleIndex + 1} of {tactic.puzzles.length}
-              {puzzle.isTeachingExample ? ' · teaching example' : ' · practice'}
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <PuzzleTabs
+              count={tactic.puzzles.length}
+              active={puzzleIndex}
+              onSelect={goToPuzzle}
+            />
             {revealed && <ProgressDots count={steps.length} active={stepIndex} />}
           </div>
+          <p className="-mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+            Puzzle {puzzleIndex + 1} of {tactic.puzzles.length}
+            {puzzle.isTeachingExample ? ' · teaching example' : ' · practice'}
+          </p>
 
           <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
             <p className="text-base leading-relaxed text-neutral-800 dark:text-neutral-200">
@@ -197,9 +261,27 @@ function LessonPage() {
             <div className="flex flex-col gap-3">
               <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-5 text-base text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
                 Lesson complete.{' '}
-                <Link to="/learn" className="font-medium underline">
-                  Back to Learn
-                </Link>
+                {tactic.next ? (
+                  <>
+                    Next up:{' '}
+                    <Link
+                      to="/learn/$slug"
+                      params={{ slug: tactic.next.slug }}
+                      className="font-medium underline"
+                    >
+                      {tactic.next.name}
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  <>
+                    That&rsquo;s the last tactic in the curriculum —{' '}
+                    <Link to="/learn" className="font-medium underline">
+                      back to Learn
+                    </Link>
+                    .
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -261,6 +343,40 @@ function LessonPage() {
               {TACTIC_OVERVIEW[tactic.slug] ?? tactic.description}
             </p>
           </div>
+
+          {/* Move between lessons without a round trip through the tier
+              overview. Curriculum order, so these cross tier boundaries. */}
+          <nav
+            aria-label="Nearby lessons"
+            className="flex items-stretch justify-between gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-800"
+          >
+            {tactic.prev ? (
+              <Link
+                to="/learn/$slug"
+                params={{ slug: tactic.prev.slug }}
+                className={tacticNavLink}
+              >
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  ← Previous
+                </span>
+                <span className="font-medium">{tactic.prev.name}</span>
+              </Link>
+            ) : (
+              <span />
+            )}
+            {tactic.next && (
+              <Link
+                to="/learn/$slug"
+                params={{ slug: tactic.next.slug }}
+                className={`${tacticNavLink} text-right`}
+              >
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  Next →
+                </span>
+                <span className="font-medium">{tactic.next.name}</span>
+              </Link>
+            )}
+          </nav>
         </div>
       </div>
     </main>
