@@ -157,11 +157,16 @@ const Cell = memo(function Cell({
     <button
       type="button"
       role="gridcell"
+      // Not a tab stop and no own focus ring: the grid <div> owns keyboard
+      // focus (arrow keys), and selection is shown by the state-driven blue
+      // ring below. Otherwise the UA outline sticks to the last-clicked cell
+      // while arrow-key navigation moves the selection elsewhere.
+      tabIndex={-1}
       onPointerDown={() => onSelect(index)}
       onClick={() => onSelect(index)}
       onDoubleClick={() => onDoubleClick(index)}
       className={[
-        'flex h-full w-full touch-manipulation items-center justify-center text-[clamp(0.9rem,6.2cqw,3rem)] font-medium select-none',
+        'flex h-full w-full touch-manipulation items-center justify-center text-[clamp(0.9rem,6.2cqw,3rem)] font-medium outline-none select-none',
         'border-r border-b border-neutral-300 dark:border-neutral-700',
         bg,
         isUser
@@ -232,6 +237,9 @@ export function SudokuGrid({
   const handleCellClick = useCallback((cell: number) => {
     selectedRef.current = cell;
     onSelectRef.current(cell);
+    // Pull keyboard focus onto the grid container (cells are tabIndex -1) so
+    // arrow keys work after a mouse click and the grid's focus ring shows.
+    gridRef.current?.focus();
   }, []);
   const handleCellDoubleClick = useCallback((cell: number) => {
     selectedRef.current = cell;
@@ -299,7 +307,7 @@ export function SudokuGrid({
       tabIndex={0}
       onKeyDown={handleKey}
       aria-label="Sudoku grid"
-      className="grid aspect-square w-full max-w-[560px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 outline-none ring-blue-500 focus:ring-2 [container-type:size] lg:w-[min(100%,100cqh)] lg:max-w-none dark:border-neutral-300"
+      className="grid aspect-square w-full max-w-[560px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 outline-none [container-type:size] lg:w-[min(100%,100cqh)] lg:max-w-none dark:border-neutral-300"
     >
       {Array.from({ length: 81 }, (_, i) => (
         <Cell
