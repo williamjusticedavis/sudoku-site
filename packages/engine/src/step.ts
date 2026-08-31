@@ -16,11 +16,14 @@ import { PEERS } from './units.js';
 /**
  * Identifier of the technique that produced a step. Kept as a string union so
  * it grows technique-by-technique without a central enum; widen as techniques
- * land. `'given'`/`'user'` cover non-technique placements (initial clues, etc.).
+ * land. `'given'`/`'user'` cover non-technique placements (initial clues, etc.),
+ * and `'user-notes'` the eliminations a user made by hand before solving (see
+ * `auditUserCandidates`).
  */
 export type TechniqueId =
   | 'given'
   | 'user'
+  | 'user-notes'
   | 'last-free-cell'
   | 'naked-single'
   | 'hidden-single'

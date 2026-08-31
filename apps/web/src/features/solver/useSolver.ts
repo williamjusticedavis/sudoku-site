@@ -1,16 +1,21 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   PEERS,
+  applyStep,
+  auditUserCandidates,
+  cellName,
   checkForMistakes,
   cloneGrid,
   countSolutions,
   findConflicts,
   hint as engineHint,
   isSolved,
+  makeStep,
   parseGrid,
   replay,
   serializeGrid,
   solveAll,
+  type CellIndex,
   type Grid,
   type Mistake,
   type Step,
@@ -25,13 +30,15 @@ export type SolverStatus = 'editing' | 'solved' | 'stuck';
 
 /** Why a grid can't be solved — surfaced as a modal with the specific reason(s). */
 export interface SolveProblem {
-  readonly reason: 'conflict' | 'unsolvable';
-  /** Specific mistakes to list (from checkForMistakes); empty for 'unsolvable'. */
+  readonly reason: 'conflict' | 'unsolvable' | 'multiple';
+  /** Specific mistakes to list (from checkForMistakes); only 'conflict' has any. */
   readonly mistakes: readonly Mistake[];
 }
 
-/** Engine-computed candidates for a board (never the user's notation) as a
- * per-cell notes array — the same shape `autoNotes` fills in manually. */
+/** A board's candidates as a per-cell notes array — the same shape `autoNotes`
+ * fills in. Reads the grid as replayed (so any step's eliminations, including a
+ * `user-notes` step, are already reflected); it does not recompute from placed
+ * digits. */
 function computeCandidates(g: Grid): Uint16Array {
   const next = new Uint16Array(81);
   for (let i = 0; i < 81; i++) if (g.placed[i] === 0) next[i] = g.candidates[i]!;
@@ -62,8 +69,11 @@ interface Snapshot {
 export interface UseSolver {
   /** The grid to render — the state at the currently-viewed step. */
   readonly display: Grid;
-  /** User pencil-mark candidates per cell (9-bit mask). Display aid only —
-   * never used for solving. Shown only in empty cells. */
+  /** User pencil-mark candidates per cell (9-bit mask). Shown only in empty
+   * cells. Primarily a display aid, but a Solve/Hint audits them first (see
+   * `userNotesStep`): marks that check out against the engine's candidates and
+   * the real solution are folded in as a step so the user's hand-eliminations
+   * aren't redone, and marks that don't are discarded wholesale. */
   readonly notes: Uint16Array;
   /** 81 chars marking cells the USER typed (vs engine-filled) — for styling. */
   readonly userCells: string;
@@ -148,11 +158,61 @@ export function useSolver(): UseSolver {
     if (findConflicts(g).length > 0) {
       return { reason: 'conflict', mistakes: checkForMistakes(g).mistakes };
     }
-    if (countSolutions(parseGrid(base), 1) === 0) {
-      return { reason: 'unsolvable', mistakes: [] };
-    }
+    // Cap 2 so this distinguishes unsolvable / unique / multiple. Several
+    // techniques (BUG+1, Unique Rectangle) assume a unique solution and would
+    // misfire otherwise, and `auditUserCandidates` compares the user's marks
+    // against *the* solution — with more than one, a perfectly valid mark could
+    // be called wrong just because the search happened to land elsewhere.
+    const solutions = countSolutions(parseGrid(base), 2);
+    if (solutions === 0) return { reason: 'unsolvable', mistakes: [] };
+    if (solutions > 1) return { reason: 'multiple', mistakes: [] };
     return null;
   }, [clueCount, base]);
+
+  /**
+   * Fold the user's hand-edited pencil marks into a replayable step, so work
+   * they already did isn't discarded and then walked through again a step at a
+   * time. `auditUserCandidates` verifies every mark against the engine's own
+   * candidates AND the puzzle's real solution; one bad cell voids the whole set
+   * (the engine's all-or-nothing policy — no partial credit), and the caller
+   * falls back to solving from the placed digits alone.
+   *
+   * Returns `step: null` when there's nothing to add — no marks at all, or
+   * marks the engine already agrees with. That also makes a second Solve on the
+   * same board a no-op, since by then the marks equal the replayed candidates.
+   */
+  const userNotesStep = useCallback((): {
+    step: Step | null;
+    bad: readonly CellIndex[];
+  } => {
+    if (notes.every((m) => m === 0)) return { step: null, bad: [] };
+    const audit = auditUserCandidates(full, notes);
+    if (!audit.ok) return { step: null, bad: audit.badCells };
+    if (audit.eliminations.length === 0) return { step: null, bad: [] };
+    const n = audit.eliminations.length;
+    return {
+      step: makeStep({
+        technique: 'user-notes',
+        eliminations: [...audit.eliminations],
+        highlights: [
+          {
+            role: 'elimination',
+            cells: [...new Set(audit.eliminations.map((e) => e.cell))],
+          },
+        ],
+        description: `Your notes — ${n} candidate${n === 1 ? '' : 's'} you already ruled out`,
+      }),
+      bad: [],
+    };
+  }, [full, notes]);
+
+  /** Notice text for marks that failed the audit, naming the offending cells. */
+  const badNotesNotice = useCallback((bad: readonly CellIndex[]): string => {
+    const names = bad.map(cellName);
+    const shown = names.slice(0, 3).join(', ');
+    const rest = names.length > 3 ? ` and ${names.length - 3} more` : '';
+    return `Your notes rule out a digit that belongs in ${shown}${rest}. Notes reset — solving from the puzzle instead.`;
+  }, []);
 
   const resetSolve = useCallback(() => {
     setHistory([]);
@@ -232,11 +292,12 @@ export function useSolver(): UseSolver {
   }, [pushUndo]);
 
   const autoNotes = useCallback(() => {
-    // Engine-computed candidates from the currently VIEWED board (honours
-    // scrubbing back through history — not the fully-hinted end state).
-    const g = parseGrid(serializeGrid(display));
+    // The candidates of the currently VIEWED board (honours scrubbing back
+    // through history — not the fully-hinted end state). Taken from the
+    // replayed grid rather than recomputed from placed digits, so it never
+    // resurrects candidates that steps already eliminated.
     pushUndo();
-    setNotes(computeCandidates(g));
+    setNotes(computeCandidates(display));
   }, [display, pushUndo]);
 
   const clear = useCallback(() => {
@@ -286,17 +347,29 @@ export function useSolver(): UseSolver {
     setMistakes(null);
     setNotice(null);
     pushUndo();
-    const step = engineHint(cloneGrid(full));
-    if (step) {
-      const nextHistory = [...history, step];
+    // Verified hand-eliminations go in first, so the hint picks up from where
+    // the user actually is rather than re-deriving work they already did.
+    const { step: userStep, bad } = userNotesStep();
+    if (bad.length > 0) {
+      setNotice(badNotesNotice(bad));
+      // Do the reset the notice promises here, not as a side effect of a later
+      // setNotes — a hint that comes back null never reaches one.
+      setNotes(computeCandidates(full));
+    }
+    const g = cloneGrid(full);
+    if (userStep) applyStep(g, userStep);
+    const step = engineHint(g);
+    const added = [...(userStep ? [userStep] : []), ...(step ? [step] : [])];
+    if (added.length > 0) {
+      const nextHistory = [...history, ...added];
       setHistory(nextHistory);
       setViewIndex(nextHistory.length);
-      setStuck(false);
+      setStuck(step === null);
       setNotes(computeCandidates(replay(base, nextHistory)));
     } else {
       setStuck(true);
     }
-  }, [validate, full, history, base, pushUndo]);
+  }, [validate, full, history, base, pushUndo, userNotesStep, badNotesNotice]);
 
   const solve = useCallback(() => {
     const v = validate();
@@ -318,9 +391,23 @@ export function useSolver(): UseSolver {
     // runs, instead of the UI just freezing.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        // Verified hand-eliminations go in first, so the solve starts from the
+        // user's actual position instead of replaying work they already did.
+        const { step: userStep, bad } = userNotesStep();
+        if (bad.length > 0) {
+          setNotice(badNotesNotice(bad));
+          // Do the reset the notice promises here, not as a side effect of a later
+          // setNotes — a hint that comes back null never reaches one.
+          setNotes(computeCandidates(full));
+        }
         const next = cloneGrid(full);
+        if (userStep) applyStep(next, userStep);
         const result = solveAll(next);
-        const nextHistory = [...history, ...result.steps];
+        const nextHistory = [
+          ...history,
+          ...(userStep ? [userStep] : []),
+          ...result.steps,
+        ];
         setHistory(nextHistory);
         setViewIndex(nextHistory.length);
         setStuck(result.status !== 'solved' && !isSolved(next));
@@ -333,7 +420,7 @@ export function useSolver(): UseSolver {
         else setSolving(false);
       });
     });
-  }, [validate, full, history, base, pushUndo]);
+  }, [validate, full, history, base, pushUndo, userNotesStep, badNotesNotice]);
 
   const viewStep = useCallback(
     (n: number) => {
@@ -355,12 +442,19 @@ export function useSolver(): UseSolver {
     for (let i = 0; i < 81; i++) {
       if (g.placed[i] === 0 && notes[i] !== 0) g.candidates[i] = notes[i]!;
     }
-    const report = checkForMistakes(g);
-    setMistakes(report.mistakes);
+    // Structural problems, then the solution-backed pass that catches a mark
+    // set which is structurally fine but rules out the digit that belongs. Both
+    // halves, so this button can't disagree with what Solve tells you.
+    const structural = checkForMistakes(g).mistakes;
+    const wrong = auditUserCandidates(full, notes).wrongEliminations.map(
+      (e): Mistake => ({ kind: 'wrong-elimination', cell: e.cell, digit: e.digit }),
+    );
+    const found = [...structural, ...wrong];
+    setMistakes(found);
     setNotice(
-      report.ok
-        ? 'No mistakes found (checked digit conflicts, impossible candidates, and missing digits).'
-        : `Found ${report.mistakes.length} problem(s).`,
+      found.length === 0
+        ? 'No mistakes found (checked digit conflicts, impossible candidates, missing digits, and notes that rule out the right digit).'
+        : `Found ${found.length} problem(s).`,
     );
   }, [full, notes]);
 

@@ -68,7 +68,7 @@ function SolverPage() {
       if (m.kind === 'digit-conflict') {
         set.add(m.cells[0]);
         set.add(m.cells[1]);
-      } else if (m.kind === 'impossible-candidate') {
+      } else if (m.kind === 'impossible-candidate' || m.kind === 'wrong-elimination') {
         set.add(m.cell);
       } else {
         // missing-digit: only mark the filled cells of the unit (the whole
@@ -643,10 +643,14 @@ function SolverPage() {
         This removes every pencil-marked note on the grid. This can&apos;t be undone.
       </Modal>
 
-      {/* Grid can't be solved (a mistake) */}
+      {/* Grid can't be solved (a mistake), or has no single solution */}
       <Modal
         open={s.problem !== null}
-        title="This grid can't be solved"
+        title={
+          s.problem?.reason === 'multiple'
+            ? "This grid doesn't have one solution"
+            : "This grid can't be solved"
+        }
         onClose={s.clearProblem}
         actions={
           <button type="button" className={btnPrimary} onClick={s.clearProblem}>

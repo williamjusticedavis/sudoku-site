@@ -12,6 +12,8 @@ export function describeMistake(m: Mistake): string {
       )} already has it`;
     case 'missing-digit':
       return `${m.digit} has no place left in ${m.unitKind} ${m.unitIndex + 1}`;
+    case 'wrong-elimination':
+      return `${cellName(m.cell)} is ${m.digit}, but your notes rule that out`;
   }
 }
 
@@ -25,5 +27,7 @@ export function mistakeKey(m: Mistake): string {
       return `impossible-candidate-${m.cell}-${m.digit}-${m.conflictingCell}`;
     case 'missing-digit':
       return `missing-digit-${m.digit}-${m.unitKind}-${m.unitIndex}`;
+    case 'wrong-elimination':
+      return `wrong-elimination-${m.cell}-${m.digit}`;
   }
 }

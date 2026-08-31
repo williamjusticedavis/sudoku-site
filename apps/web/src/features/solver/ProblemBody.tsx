@@ -11,6 +11,14 @@ export function ProblemBody({ problem }: { problem: SolveProblem | null }) {
       </p>
     );
   }
+  if (problem.reason === 'multiple') {
+    return (
+      <p>
+        This grid has more than one valid solution, so there is no single right answer to
+        work towards. Add the clues you&rsquo;re missing and try again.
+      </p>
+    );
+  }
   return (
     <div>
       <p>There is a mistake — the same digit appears more than once in a unit:</p>

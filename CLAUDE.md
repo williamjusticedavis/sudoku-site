@@ -88,8 +88,10 @@ do NOT persist solves (see below).
 ## Core engine design decisions
 
 - **The engine is the source of truth for candidates, never the user's input.**
-  On load, always compute candidates from scratch from placed digits. Never
-  trust a user's manual notation marks as correct.
+  On load, always compute candidates from scratch from placed digits. A user's
+  manual notation marks are never trusted _on their word_ — but as of
+  2026-08-31 they can be **verified and promoted**, which is not the same thing
+  as trusting them. See "User notation may be promoted, never trusted" below.
 - **Solving loop**: recompute state → walk techniques in confirmed difficulty
   order → apply the _first_ one that qualifies → restart from the top of the
   list (not continue from where you left off) → repeat until solved or stuck.
@@ -102,18 +104,50 @@ do NOT persist solves (see below).
   NOT attempt partial-credit reconciliation (this was explored and abandoned
   as impractical — see chat history if curious why). Simply reset to blank
   notation state and notify the user.
-- **"Check for mistakes" is intentionally lightweight** — NOT full technique
-  verification. Scope is exactly three checks:
+- **User notation may be promoted, never trusted (2026-08-31).** The principle
+  is unchanged — the engine still decides what is true. What changed is that
+  there is now a real verification mechanism where before there was none, so
+  "we can't tell if these marks are right, therefore discard them" no longer
+  holds. `auditUserCandidates(grid, marks)` (`packages/engine/src/validate.ts`)
+  checks every mark against **both** the engine's own candidates (nothing added
+  that was already ruled out) **and** the puzzle's actual solution from the
+  brute-force `solve` (nothing removed that genuinely belongs). Only on a
+  completely clean pass are the user's extra eliminations promoted to trusted
+  and folded into the solve; a single bad cell voids the entire set — full
+  reset, no partial credit, exactly as `reconcileNotation` has always behaved.
+  So the rule is: _verify against ground truth, promote all-or-nothing, reset
+  otherwise_ — never "believe the user."
+  - A cell whose mark is `0` means "the user wrote nothing here", not "no
+    candidates" — those cells are skipped and left to the engine, so partially
+    noted grids work.
+  - Promotion is carried as a `Step` with technique id `'user-notes'`, appended
+    to the solver's history like any other step. That's what makes it work with
+    zero changes to the solving loop: `replay`/`applyStep` reproduce the
+    reduced candidate state, and scrub/undo/step-list all behave normally.
+- **"Check for mistakes" is precise, not lightweight (revised 2026-08-31).**
+  It previously ran exactly three structural checks and was explicitly barred
+  from catching wrongly-eliminated-but-still-valid candidates. That restriction
+  is **lifted**: once Solve could tell a user their notes rule out the right
+  digit, a Check button that answered "no mistakes found" on the same grid was
+  simply contradicting it. Scope is now four checks:
   1. Digit conflicts (duplicate placed digit in a row/column/box)
   2. Impossible candidates present (a candidate that contradicts a placed digit)
   3. A digit missing entirely from a unit — neither placed nor present as a
      candidate anywhere in that row/column/box (definite contradiction)
-     Do not extend this to catching wrongly-eliminated-but-still-valid
-     candidates — that needs full reachability analysis and belongs in
-     hint/solve, not this quick-check button.
+  4. A note set that rules out the digit which actually belongs in that cell
+     (`wrong-elimination`) — structurally legal, but wrong
+     Checks 1–3 stay in `checkForMistakes` (the structural half, no solution
+     needed); check 4 comes from `auditUserCandidates`, and the solver page's
+     `check()` runs both so the button and Solve always agree. The old "that needs
+     full reachability analysis" objection no longer applies — it's answered
+     against the brute-force solution, not by reachability.
 - Invalid grids (duplicate digits) → reject immediately, no solve attempt.
-- Valid grids with multiple solutions → flag and notify (some techniques,
-  like BUG+1, assume a unique solution and would misfire otherwise).
+- Valid grids with multiple solutions → **reject**, don't attempt a solve
+  (implemented 2026-08-31; `validate()` counts solutions with cap 2). Some
+  techniques (BUG+1, Unique Rectangle) assume a unique solution and would
+  misfire, and `auditUserCandidates` compares the user's marks against _the_
+  solution — with more than one, a perfectly valid mark could be called wrong
+  purely because the search happened to land on a different solution.
 
 ## Learn curriculum — tactics table (locked, 2026-08-27)
 

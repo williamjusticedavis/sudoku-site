@@ -40,14 +40,19 @@ function describeMistake(m: Mistake): string {
       return `missing-digit: ${m.digit} is neither placed nor a candidate anywhere in ${
         m.unitKind
       } ${m.unitIndex + 1}`;
+    case 'wrong-elimination':
+      return `wrong-elimination: ${cellName(m.cell)} is ${m.digit} in the solution, but the marks rule it out`;
   }
 }
 
 function describeStep(step: Step, n: number): string {
-  const parts: string[] = [`${String(n).padStart(3)}. [${step.technique}] ${step.description}`];
+  const parts: string[] = [
+    `${String(n).padStart(3)}. [${step.technique}] ${step.description}`,
+  ];
   if (step.placements.length > 0) {
     parts.push(
-      '     place: ' + step.placements.map((p) => `${cellName(p.cell)}=${p.digit}`).join(', '),
+      '     place: ' +
+        step.placements.map((p) => `${cellName(p.cell)}=${p.digit}`).join(', '),
     );
   }
   if (step.eliminations.length > 0) {
@@ -115,8 +120,12 @@ function main(argv: string[]): number {
 
   const unique = hasUniqueSolution(grid);
   if (!unique) {
-    console.log('\n⚠ Grid does not have a unique solution (0 or multiple). Solving anyway;');
-    console.log('  uniqueness-based techniques (BUG+1, Unique Rectangle) are suppressed by');
+    console.log(
+      '\n⚠ Grid does not have a unique solution (0 or multiple). Solving anyway;',
+    );
+    console.log(
+      '  uniqueness-based techniques (BUG+1, Unique Rectangle) are suppressed by',
+    );
     console.log('  their own guards.');
   }
 
@@ -129,7 +138,8 @@ function main(argv: string[]): number {
 
   // Technique histogram.
   const counts = new Map<string, number>();
-  for (const s of result.steps) counts.set(s.technique, (counts.get(s.technique) ?? 0) + 1);
+  for (const s of result.steps)
+    counts.set(s.technique, (counts.get(s.technique) ?? 0) + 1);
   const histogram = [...counts.entries()].sort((a, b) => b[1] - a[1]);
 
   console.log(`\nResult: ${result.status}`);
@@ -145,7 +155,9 @@ function main(argv: string[]): number {
     return 0;
   }
   const remaining = grid.placed.filter((d) => d === 0).length;
-  console.log(`\n✗ Stuck with ${remaining} cells unsolved (no registered technique applies).`);
+  console.log(
+    `\n✗ Stuck with ${remaining} cells unsolved (no registered technique applies).`,
+  );
   return 1;
 }
 
