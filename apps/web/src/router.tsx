@@ -16,6 +16,13 @@ export function getRouter() {
     // The framework default for an unmatched URL is a bare, unstyled
     // "Not Found" string with no way back.
     defaultNotFoundComponent: () => <NotFound />,
+    // NB: deliberately no `defaultPendingComponent` here. Setting one wraps the
+    // *root* match in a <Suspense> boundary, which put the dev client-entry
+    // <script> that <Scripts /> renders inside that boundary and broke
+    // hydration ("server rendered HTML didn't match the client"). React then
+    // regenerated the whole tree client-side, resetting <html> and losing the
+    // theme class. Pending UI is declared per route instead — only the Learn
+    // routes have loaders that can actually be slow. See PageLoading.
   });
   return router;
 }

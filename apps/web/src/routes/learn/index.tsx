@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { getTactics } from '../../features/learn/tactics.js';
+import { PageLoading } from '../../features/shell/PageLoading.js';
 import { familyFor } from '../../features/learn/families.js';
 import {
   TIER_LABEL,
@@ -11,6 +12,11 @@ import {
 export const Route = createFileRoute('/learn/')({
   loader: () => getTactics(),
   component: LearnOverview,
+  // Declared per route rather than router-wide: a defaultPendingComponent also
+  // wraps the root match in <Suspense>, which breaks hydration (see router.tsx).
+  pendingComponent: PageLoading,
+  pendingMs: 300,
+  pendingMinMs: 400,
 });
 
 /** Per-tier tint: a cool→warm progression from Beginner to Master. Class

@@ -7,6 +7,7 @@ import { LessonBoard } from '../../features/learn/LessonBoard.js';
 import { TACTIC_OVERVIEW } from '../../features/learn/overviews.js';
 import { parseLessonGrid, toEngineStep } from '../../features/learn/stepAdapter.js';
 import { NotFound } from '../../features/shell/NotFound.js';
+import { PageLoading } from '../../features/shell/PageLoading.js';
 import {
   TIER_LABEL,
   type LessonStep,
@@ -20,6 +21,11 @@ export const Route = createFileRoute('/learn/$slug')({
     return tactic;
   },
   component: LessonPage,
+  // Declared per route rather than router-wide: a defaultPendingComponent also
+  // wraps the root match in <Suspense>, which breaks hydration (see router.tsx).
+  pendingComponent: PageLoading,
+  pendingMs: 300,
+  pendingMinMs: 400,
   notFoundComponent: () => (
     <NotFound
       title="Lesson not found"
