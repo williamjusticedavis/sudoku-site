@@ -8,6 +8,7 @@ import {
   type TacticSummary,
   type Tier,
 } from '../../features/learn/types.js';
+import { TIER_ACCENT, type TierAccent } from '../../features/learn/tierAccent.js';
 
 export const Route = createFileRoute('/learn/')({
   loader: () => getTactics(),
@@ -19,50 +20,27 @@ export const Route = createFileRoute('/learn/')({
   pendingMinMs: 400,
 });
 
-/** Per-tier tint: a cool→warm progression from Beginner to Master. Class
- * strings are spelled out (not interpolated) so Tailwind keeps them. */
-interface TierAccent {
-  heading: string;
-  rule: string;
-  bar: string;
-  card: string;
-  family: string;
-  familyLabel: string;
-}
-const TIER_ACCENT: Record<Tier, TierAccent> = {
-  beginner: {
-    heading: 'text-emerald-700 dark:text-emerald-400',
-    rule: 'bg-emerald-500/60',
-    bar: 'bg-emerald-500',
-    card: 'border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/60 dark:border-emerald-900/70 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30',
-    family: 'border-emerald-300 dark:border-emerald-800/80',
-    familyLabel: 'text-emerald-700/80 dark:text-emerald-400/80',
-  },
-  intermediate: {
-    heading: 'text-sky-700 dark:text-sky-400',
-    rule: 'bg-sky-500/60',
-    bar: 'bg-sky-500',
-    card: 'border-sky-200 hover:border-sky-400 hover:bg-sky-50/60 dark:border-sky-900/70 dark:hover:border-sky-700 dark:hover:bg-sky-950/30',
-    family: 'border-sky-300 dark:border-sky-800/80',
-    familyLabel: 'text-sky-700/80 dark:text-sky-400/80',
-  },
-  advanced: {
-    heading: 'text-amber-700 dark:text-amber-400',
-    rule: 'bg-amber-500/60',
-    bar: 'bg-amber-500',
-    card: 'border-amber-200 hover:border-amber-400 hover:bg-amber-50/60 dark:border-amber-900/70 dark:hover:border-amber-700 dark:hover:bg-amber-950/30',
-    family: 'border-amber-300 dark:border-amber-800/80',
-    familyLabel: 'text-amber-700/80 dark:text-amber-400/80',
-  },
-  master: {
-    heading: 'text-rose-700 dark:text-rose-400',
-    rule: 'bg-rose-500/60',
-    bar: 'bg-rose-500',
-    card: 'border-rose-200 hover:border-rose-400 hover:bg-rose-50/60 dark:border-rose-900/70 dark:hover:border-rose-700 dark:hover:bg-rose-950/30',
-    family: 'border-rose-300 dark:border-rose-800/80',
-    familyLabel: 'text-rose-700/80 dark:text-rose-400/80',
-  },
-};
+/** The two Learn entries that aren't tactics — How Sudoku Works and Strong
+ * Links & Weak Links. A tactic card is a raised white/neutral-900 panel on the
+ * page ground; these are filled instead, so they sit *in* the page rather than
+ * on it and read as something to read rather than something to work through.
+ * (They already had no progress bar, and a dashed border — but dashed is also
+ * the family-group marker a few lines down, so it wasn't distinguishing much.)
+ *
+ * Deliberately neutral rather than tier-tinted, including the one that lives
+ * under Advanced: the point being made is that it's a different *kind* of
+ * thing, not a different difficulty, and a tier colour would say the opposite.
+ *
+ * "Filled" means opposite directions per theme, and that's on purpose. Light
+ * mode fills *up* from the near-white page; dark mode fills *down*, darker than
+ * both the page and the tactic cards. A pale grey panel in dark mode flattens
+ * the whole card — the title stops reading as a heading even though its
+ * contrast ratio is fine — so recessed is the only version that works in both. */
+const infoCard = [
+  'flex flex-col gap-1 rounded-lg border-2 border-dashed p-4 transition-colors',
+  'border-neutral-300 bg-neutral-100 hover:border-neutral-400 hover:bg-neutral-200/70',
+  'dark:border-neutral-600 dark:bg-black/40 dark:hover:border-neutral-500 dark:hover:bg-black/60',
+].join(' ');
 
 /** 0-100 completion for a tactic. No auth yet, so everything reads as
  * not started; wire this to `user_tactic_progress` when auth lands. */
@@ -86,7 +64,7 @@ function TacticCard({ tactic, accent }: { tactic: TacticSummary; accent: TierAcc
     <Link
       to="/learn/$slug"
       params={{ slug: tactic.slug }}
-      className={`flex flex-col gap-2 rounded-lg border bg-white p-4 transition-colors dark:bg-neutral-900 ${accent.card}`}
+      className={`flex flex-col gap-2 rounded-lg border-2 bg-white p-4 transition-colors dark:bg-neutral-900 ${accent.card}`}
     >
       <div className="font-semibold text-neutral-900 dark:text-neutral-100">
         {tactic.name}
@@ -161,10 +139,7 @@ function LearnOverview() {
         </p>
       </header>
 
-      <Link
-        to="/learn/basics"
-        className="mb-8 flex flex-col gap-1 rounded-lg border border-dashed border-neutral-300 bg-white p-4 transition-colors hover:border-neutral-400 hover:bg-neutral-50/60 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-600 dark:hover:bg-neutral-800/40"
-      >
+      <Link to="/learn/basics" className={`mb-8 ${infoCard}`}>
         <div className="font-semibold text-neutral-900 dark:text-neutral-100">
           New to sudoku? Start here
         </div>
@@ -192,10 +167,7 @@ function LearnOverview() {
               </div>
               <div className={`mb-4 h-0.5 w-full rounded-full ${accent.rule}`} />
               {tier === 'advanced' && (
-                <Link
-                  to="/learn/strong-weak-links"
-                  className={`mb-3 flex flex-col gap-1 rounded-lg border border-dashed bg-white p-4 transition-colors dark:bg-neutral-900 ${accent.card}`}
-                >
+                <Link to="/learn/strong-weak-links" className={`mb-3 ${infoCard}`}>
                   <div className="font-semibold text-neutral-900 dark:text-neutral-100">
                     Strong Links &amp; Weak Links
                   </div>
