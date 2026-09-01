@@ -48,10 +48,14 @@ export interface TacticSummary {
   description: string;
 }
 
-/** Just enough to render a link to a neighbouring tactic. */
+/** Just enough to render a link to a neighbouring tactic. Carries `tier` so the
+ * link can be tinted by the tier it leads *to* — the neighbour is often in a
+ * different tier from the lesson being viewed, and that's worth seeing before
+ * you click. */
 export interface TacticLink {
   slug: string;
   name: string;
+  tier: Tier;
 }
 
 export interface TacticDetail extends TacticSummary {

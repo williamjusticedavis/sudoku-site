@@ -12,7 +12,9 @@ import {
   TIER_LABEL,
   type LessonStep,
   type TacticDetail,
+  type TacticLink,
 } from '../../features/learn/types.js';
+import { TIER_ACCENT } from '../../features/learn/tierAccent.js';
 
 export const Route = createFileRoute('/learn/$slug')({
   loader: async ({ params }) => {
@@ -58,7 +60,41 @@ const btn =
 const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
 const btnGhost = `${btn} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`;
 const tacticNavLink =
-  'flex max-w-[48%] flex-col gap-0.5 rounded-md px-3 py-2 text-sm text-neutral-800 transition-colors hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800';
+  'flex max-w-[48%] flex-col gap-0.5 rounded-md px-3 py-2 text-sm text-neutral-800 transition-colors dark:text-neutral-200';
+
+/**
+ * A previous/next lesson link, tinted by the tier of the lesson it leads to
+ * rather than the one being viewed. Curriculum order runs straight through the
+ * tier boundaries, so the last Beginner lesson's "next" is Intermediate — the
+ * colour change is the only warning that the step up is about to happen.
+ *
+ * The stripe sits on the leading edge in each direction (left for previous,
+ * right for next) so it reads as pointing the way out of the page.
+ */
+function TacticNavLink({
+  tactic,
+  direction,
+}: {
+  tactic: TacticLink;
+  direction: 'prev' | 'next';
+}) {
+  const accent = TIER_ACCENT[tactic.tier];
+  const isPrev = direction === 'prev';
+  const edge = isPrev ? 'border-l-2 pl-3' : 'border-r-2 pr-3 text-right';
+
+  return (
+    <Link
+      to="/learn/$slug"
+      params={{ slug: tactic.slug }}
+      className={`${tacticNavLink} ${edge} ${accent.nav}`}
+    >
+      <span className={`text-xs font-medium ${accent.heading}`}>
+        {isPrev ? '← Previous' : 'Next →'}
+      </span>
+      <span className="font-medium">{tactic.name}</span>
+    </Link>
+  );
+}
 
 /** Short confirmation of the board change an "Apply" click just made — kept
  * separate from `step.explanation` (the reasoning) so applying doesn't just
@@ -203,19 +239,25 @@ function LessonPage() {
         All lessons
       </Link>
       {/* Tier and family are context, not destinations — plain text, so the
-          back link above is the only thing that looks clickable here. */}
-      <div className="mb-1 flex items-center gap-2 text-xs font-medium tracking-wide text-neutral-500 uppercase dark:text-neutral-400">
-        <span>{TIER_LABEL[tactic.tier]}</span>
+          back link above is the only thing that looks clickable here. The tier
+          gets its colour as a filled pill and again as the rule under the
+          title: on the overview a lesson is always sitting inside a
+          colour-coded tier section, and opening it used to throw that away, so
+          nothing but the word "Intermediate" said which level you were on. */}
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
+        <span className={`rounded-full px-2 py-0.5 ${TIER_ACCENT[tactic.tier].chip}`}>
+          {TIER_LABEL[tactic.tier]}
+        </span>
         {family && (
-          <>
-            <span aria-hidden>·</span>
-            <span>{family.label}</span>
-          </>
+          <span className="text-neutral-500 dark:text-neutral-400">{family.label}</span>
         )}
       </div>
-      <h1 className="mb-6 text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+      <h1 className="mb-2 text-3xl font-bold text-neutral-900 dark:text-neutral-100">
         {tactic.name}
       </h1>
+      <div
+        className={`mb-6 h-0.5 w-full rounded-full ${TIER_ACCENT[tactic.tier].rule}`}
+      />
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_28rem]">
         <div className="flex justify-center">
@@ -362,31 +404,11 @@ function LessonPage() {
             className="flex items-stretch justify-between gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-800"
           >
             {tactic.prev ? (
-              <Link
-                to="/learn/$slug"
-                params={{ slug: tactic.prev.slug }}
-                className={tacticNavLink}
-              >
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                  ← Previous
-                </span>
-                <span className="font-medium">{tactic.prev.name}</span>
-              </Link>
+              <TacticNavLink tactic={tactic.prev} direction="prev" />
             ) : (
               <span />
             )}
-            {tactic.next && (
-              <Link
-                to="/learn/$slug"
-                params={{ slug: tactic.next.slug }}
-                className={`${tacticNavLink} text-right`}
-              >
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                  Next →
-                </span>
-                <span className="font-medium">{tactic.next.name}</span>
-              </Link>
-            )}
+            {tactic.next && <TacticNavLink tactic={tactic.next} direction="next" />}
           </nav>
         </div>
       </div>

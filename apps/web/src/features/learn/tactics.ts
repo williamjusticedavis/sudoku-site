@@ -47,7 +47,7 @@ export const getTactic = createServerFn({ method: 'GET' })
     // correctly. 28 rows of two columns; cheaper than a window function for
     // the clarity it costs.
     const ordered = await db.query.tactics.findMany({
-      columns: { slug: true, name: true },
+      columns: { slug: true, name: true, tier: true },
       orderBy: (t, { asc }) => [asc(t.tier), asc(t.orderInTier)],
     });
     const at = ordered.findIndex((t) => t.slug === slug);
