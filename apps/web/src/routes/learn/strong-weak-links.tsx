@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { BackButton } from '../../features/learn/BackButton.js';
 
 export const Route = createFileRoute('/learn/strong-weak-links')({
   component: StrongWeakLinksPage,
@@ -118,6 +119,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function StrongWeakLinksPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8">
+      <BackButton fallbackTo="/learn" />
       <div className="mb-1 flex items-center gap-2 text-xs font-medium tracking-wide text-neutral-500 uppercase dark:text-neutral-400">
         <Link to="/learn" className="hover:text-neutral-800 dark:hover:text-neutral-200">
           Advanced
