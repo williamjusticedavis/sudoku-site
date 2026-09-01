@@ -67,10 +67,10 @@ import {
   xyWing,
   xyzWing,
   alsXz,
+  buildWalkthrough,
 } from '@sudoku/engine';
 import type { HintStep, NewTactic } from './index.js';
 import { tacticPuzzles, tactics } from './schema/index.js';
-import { buildWalkthrough } from './walkthrough.js';
 
 // The db client throws when DATABASE_URL is unset. Load the repo-root .env
 // (best effort) and fall back to the local docker-compose credentials before

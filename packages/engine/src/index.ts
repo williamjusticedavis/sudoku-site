@@ -28,3 +28,9 @@ export * from './techniques/forcing.js';
 // own technique set (see `techniques/` above), never registered in
 // solver.TECHNIQUES, never change the main solving page's step labels.
 export * from './teaching/teachingSingles.js';
+// Step narration shared by the Learn seed and the solver page — one set of
+// templates so a technique reads the same in a lesson and in the solver.
+export * from './explain/types.js';
+export * from './explain/names.js';
+export * from './explain/walkthrough.js';
+export * from './explain/summary.js';

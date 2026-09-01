@@ -4,7 +4,7 @@
  * highlighted cells, building up to the elimination/placement and ending on the
  * "Apply" beat.
  *
- * Each beat becomes one `HintStep` in a puzzle's `stepData[]`:
+ * Each beat becomes one `ExplainBeat` in a puzzle's `stepData[]`:
  *  - `explanation`  — the beat's narration (engine cell names / digits filled in)
  *  - `highlights`   — the CUMULATIVE subset of the final step's highlight groups
  *                     revealed so far
@@ -19,18 +19,11 @@
  * strong/weak-link-aware narration). The cells and digits in every beat come
  * straight from the engine Step — only the sentence scaffolding is templated.
  */
-import {
-  cellName,
-  commonPeers,
-  hasCand,
-  parseGrid,
-  parseGridWithCandidates,
-  sees,
-  type Digit,
-  type Grid,
-  type Step,
-} from '@sudoku/engine';
-import type { HintStep } from './index.js';
+import { parseGrid, parseGridWithCandidates } from '../candidates.js';
+import { cellName, hasCand, type Digit, type Grid } from '../grid.js';
+import type { Step } from '../step.js';
+import { commonPeers, sees } from '../units.js';
+import type { ExplainBeat } from './types.js';
 
 /** A lesson board string is either a plain 81-char digit string or the
  * bracket-candidate notation from `serializeGridWithCandidates` — mirrors
@@ -53,7 +46,7 @@ interface Beat {
    * revealed progressively like highlight roles, a beat either shows them or
    * doesn't). */
   arrows?: { from: number; to: number }[];
-  /** Learn-only decorative lines (green, no arrowhead) — see `HintStep.xLines`.
+  /** Learn-only decorative lines (green, no arrowhead) — see `ExplainBeat.xLines`.
    * `style: 'dashed'` for a weak link (shares a unit, "not both"), solid
    * (the default) for a strong link (conjugate pair, "not one → the other"). */
   xLines?: { from: number; to: number; style?: 'solid' | 'dashed' }[];
@@ -141,6 +134,29 @@ function placeTemplate(step: Step): Beat[] {
   const unit = unitLabel([spot.cell, ...rel]);
 
   const beats: Beat[] = [];
+  if (step.technique === 'last-free-cell') {
+    // The generic "every other empty cell is blocked" line is vacuously true
+    // here — there are no other empty cells — and reads as a much harder
+    // deduction than the one actually being made.
+    return [
+      {
+        text: `${unit[0]!.toUpperCase()}${unit.slice(1)} has just one empty cell left: ${p}.`,
+        roles: [],
+        groups: [
+          { role: 'related', cells: [...rel] },
+          { role: 'focus', cells: [spot.cell], digits: [d] },
+        ],
+      },
+      {
+        text: `Each unit holds 1–9 once, and the only digit missing from it is ${d}.`,
+        roles: ['related', 'placement'],
+      },
+      {
+        text: `Place ${d} in ${p}.`,
+        roles: ['related', 'placement'],
+      },
+    ];
+  }
   if (rel.length > 0) {
     // Cross-hatching's step also carries 'scan' — the rows/columns/boxes
     // crossing this unit that already hold the digit, i.e. the scanlines
@@ -1101,6 +1117,98 @@ function alsXzTemplate(step: Step): Beat[] {
   ];
 }
 
+/** Forcing chain: the solver's depth-1 backstop. Not a pattern the eye finds,
+ * so the narration is honest about what it is — try each candidate, keep the
+ * ones that don't collapse — rather than dressing it up as a spotted shape. */
+function forcingChainTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
+  const cell = step.eliminations[0]!.cell;
+  const p = cellName(cell);
+  const gone = [...new Set(step.eliminations.map((e) => e.digit))];
+  const survivors: number[] = [];
+  for (let d = 1; d <= 9; d++) {
+    if (hasCand(grid.candidates[cell]!, d as Digit) && !gone.includes(d as Digit))
+      survivors.push(d);
+  }
+  const all = [...gone, ...survivors].sort((a, b) => a - b);
+  const focus = { role: 'focus', cells: [cell], digits: all };
+
+  return [
+    {
+      text: `No pattern on the board pins ${p} down — it still has ${digitsOr(all)}.`,
+      roles: [],
+      groups: [focus],
+    },
+    {
+      text: `So try them one at a time: put ${joinWith(
+        gone.map((d) => String(d)),
+        'or',
+      )} in ${p} and follow the forced moves, and the grid runs into a contradiction every time — some unit ends up with no home for a digit.`,
+      roles: [],
+      groups: [focus],
+    },
+    {
+      text:
+        survivors.length === 1
+          ? `Only ${survivors[0]} survives, so ${p} must be ${survivors[0]}.`
+          : `Only ${digitsOr(survivors)} survive.`,
+      roles: ['elimination'],
+    },
+    {
+      text: `Remove ${digits(gone)} from ${p}.`,
+      roles: ['elimination'],
+    },
+  ];
+}
+
+/** The user's own pencil marks, verified against the solution and promoted.
+ * Narrated because it appears in the step list like any other step, and "12
+ * candidates you already ruled out" deserves to say why it was trusted. */
+function userNotesTemplate(step: Step): Beat[] {
+  const n = step.eliminations.length;
+  const cs = elimCells(step);
+  const cellCount = `${cs.length} cell${cs.length === 1 ? '' : 's'}`;
+  return [
+    {
+      text: `You'd already crossed out ${n} candidate${n === 1 ? '' : 's'} by hand, across ${cellCount}.`,
+      roles: ['elimination'],
+    },
+    {
+      text: `Every one was checked against the finished grid: none of them rules out a digit that actually belongs. So they're kept instead of being redone.`,
+      roles: ['elimination'],
+    },
+    {
+      text: `Carry your ${n} elimination${n === 1 ? '' : 's'} into the solve.`,
+      roles: ['elimination'],
+    },
+  ];
+}
+
+/** Fallback for a technique with no template of its own: one beat carrying the
+ * engine's own description, with the step's highlights shown in full. Nothing
+ * in the current technique set lands here — it exists so a technique added
+ * later degrades to "terse but correct" instead of throwing at the user. */
+function genericTemplate(step: Step): Beat[] {
+  const roles: Role[] = [
+    'base',
+    'cover',
+    'fin',
+    'related',
+    'scan',
+    'elimination',
+    'placement',
+  ];
+  return [
+    { text: step.description, roles },
+    {
+      text:
+        step.placements.length > 0
+          ? `Place ${step.placements[0]!.digit} in ${cellName(step.placements[0]!.cell)}.`
+          : `Remove ${digits([...new Set(step.eliminations.map((e) => e.digit))])} from ${cells(elimCells(step))}.`,
+      roles,
+    },
+  ];
+}
+
 // --- dispatch ---------------------------------------------------------------
 
 type Template = (step: Step, slug: string, grid: Grid) => Beat[];
@@ -1134,6 +1242,15 @@ const BY_SLUG: Record<string, Template> = {
   'unique-rectangle': uniqueRectangleTemplate,
   'simple-coloring': coloringTemplate,
   'als-xz': alsXzTemplate,
+  // Solver-only ids: no lesson of their own, but the solver page narrates
+  // every step it applies, so each still needs a template. `hidden-single` is
+  // what Cross-Hatching / Last Possible Number are called by the engine, and
+  // `claiming` is the other half of the merged Pointing/Claiming lesson —
+  // both reuse the template their lesson already uses.
+  'hidden-single': placeTemplate,
+  claiming: lockedTemplate,
+  'forcing-chain': forcingChainTemplate,
+  'user-notes': userNotesTemplate,
 };
 
 /**
@@ -1149,11 +1266,33 @@ export function buildWalkthrough(
   slug: string,
   gridBefore: string | undefined,
   boardGrid: string,
-): HintStep[] {
+): ExplainBeat[] {
   const template = BY_SLUG[slug];
   if (!template) throw new Error(`[walkthrough] no template for "${slug}"`);
-  const beats = template(step, slug, parseBoard(boardGrid));
+  return toBeats(step, template(step, slug, parseBoard(boardGrid)), gridBefore);
+}
 
+/**
+ * The solver's entry point: narrate a step the engine just found, against the
+ * live grid it fired on. Same templates, same sentences the Learn lesson for
+ * that technique uses — a step read in the solver and the same step read in a
+ * lesson should not sound like two different products. Unlike
+ * `buildWalkthrough` this never throws: an unmapped technique falls back to
+ * the engine's own one-line description (see `genericTemplate`).
+ */
+export function explainStep(step: Step, grid: Grid): ExplainBeat[] {
+  const template = BY_SLUG[step.technique] ?? genericTemplate;
+  return toBeats(step, template(step, step.technique, grid), undefined);
+}
+
+/** Beats → serializable `ExplainBeat`s: resolve each beat's cumulative
+ * highlight roles against the step, and hang the real placements/eliminations
+ * on the last beat only (that's what makes its button read "Apply"). */
+function toBeats(
+  step: Step,
+  beats: Beat[],
+  gridBefore: string | undefined,
+): ExplainBeat[] {
   return beats.map((beat, i) => {
     const last = i === beats.length - 1;
     const highlights =
@@ -1165,7 +1304,7 @@ export function buildWalkthrough(
           cells: [...g.cells],
           ...(g.digits ? { digits: [...g.digits] } : {}),
         }));
-    const hs: HintStep = {
+    const hs: ExplainBeat = {
       technique: step.technique,
       explanation: beat.text,
       highlights,
