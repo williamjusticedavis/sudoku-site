@@ -1,4 +1,4 @@
-import type { Step } from '@sudoku/engine';
+import type { ExplainBeat, Step } from '@sudoku/engine';
 
 export type CellRole =
   'base' | 'cover' | 'fin' | 'related' | 'elimination' | 'placement' | 'focus' | 'scan';
@@ -23,6 +23,49 @@ const PRIORITY: CellRole[] = [
   'elimination',
   'placement',
 ];
+
+/**
+ * Cell background per solve-step role, shared by the solver grid and the Learn
+ * lesson board. The two kept separate copies until the solver's steps were
+ * given the lessons' narration — at which point a technique showing violet
+ * base cells in its lesson and sky-blue ones in the solver was just the same
+ * pattern wearing two costumes.
+ */
+export const ROLE_BG: Record<CellRole, string> = {
+  placement: 'bg-emerald-200 dark:bg-emerald-800/70',
+  elimination: 'bg-rose-200 dark:bg-rose-800/70',
+  base: 'bg-violet-200 dark:bg-violet-900/50',
+  cover: 'bg-indigo-200 dark:bg-indigo-800/70',
+  fin: 'bg-amber-200 dark:bg-amber-700/70',
+  related: 'bg-sky-200 dark:bg-sky-800/70',
+  focus: 'bg-slate-300 dark:bg-neutral-600/70',
+  scan: 'bg-slate-100 dark:bg-neutral-800/50',
+};
+
+/**
+ * Adapt a narration beat to the engine `Step` shape, so the highlight and
+ * candidate-marker helpers below can read a beat the same way they read a
+ * step. Only the fields those helpers touch are populated.
+ */
+export function beatAsStep(beat: ExplainBeat): Step {
+  return {
+    technique: beat.technique as Step['technique'],
+    description: beat.explanation ?? '',
+    highlights: (beat.highlights ?? []) as Step['highlights'],
+    placements: (beat.placements ?? []) as Step['placements'],
+    eliminations: (beat.eliminations ?? []) as Step['eliminations'],
+  };
+}
+
+/** Every cell a beat names — highlight groups, placements, eliminations. The
+ * set the dim treatment keeps lit. */
+export function stepCells(beat: ExplainBeat): number[] {
+  const cells: number[] = [];
+  for (const g of beat.highlights ?? []) cells.push(...g.cells);
+  for (const p of beat.placements ?? []) cells.push(p.cell);
+  for (const e of beat.eliminations ?? []) cells.push(e.cell);
+  return cells;
+}
 
 export function buildHighlightMap(step: Step | null): Map<number, CellRole> {
   const map = new Map<number, CellRole>();

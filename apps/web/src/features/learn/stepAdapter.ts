@@ -1,4 +1,5 @@
 import { parseGrid, parseGridWithCandidates, type Grid, type Step } from '@sudoku/engine';
+import { beatAsStep, stepCells as beatCells } from '../solver/highlights.js';
 import type { LessonStep } from './types.js';
 
 /**
@@ -13,24 +14,16 @@ export function parseLessonGrid(grid: string): Grid {
 
 /**
  * Adapt a stored `LessonStep` to the engine `Step` shape so the solver's
- * `buildHighlightMap` / `buildCandidateMarkers` can be reused verbatim. Only
- * the fields those helpers read are populated.
+ * `buildHighlightMap` / `buildCandidateMarkers` can be reused verbatim. A
+ * stored lesson step and a beat the solver narrates live are the same shape —
+ * both come out of the engine's `buildWalkthrough`/`explainStep` — so this is
+ * just `beatAsStep` under the name the lesson code uses.
  */
 export function toEngineStep(step: LessonStep): Step {
-  return {
-    technique: step.technique as Step['technique'],
-    description: step.explanation,
-    highlights: (step.highlights ?? []) as Step['highlights'],
-    placements: (step.placements ?? []) as Step['placements'],
-    eliminations: (step.eliminations ?? []) as Step['eliminations'],
-  };
+  return beatAsStep(step);
 }
 
-/** Every cell the step names — highlight groups, placements, eliminations. */
+/** Every cell the step names — see `stepCells` in the solver's highlights. */
 export function stepCells(step: LessonStep): number[] {
-  const cells: number[] = [];
-  for (const g of step.highlights ?? []) cells.push(...g.cells);
-  for (const p of step.placements ?? []) cells.push(p.cell);
-  for (const e of step.eliminations ?? []) cells.push(e.cell);
-  return cells;
+  return beatCells(step);
 }

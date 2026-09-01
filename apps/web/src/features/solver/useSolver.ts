@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   PEERS,
   applyStep,
@@ -7,6 +7,7 @@ import {
   checkForMistakes,
   cloneGrid,
   countSolutions,
+  explainStep,
   findConflicts,
   hint as engineHint,
   isSolved,
@@ -16,15 +17,21 @@ import {
   serializeGrid,
   solveAll,
   type CellIndex,
+  type ExplainBeat,
   type Grid,
   type Mistake,
   type Step,
 } from '@sudoku/engine';
+import { beatAsStep } from './highlights.js';
 
 const EMPTY = '.'.repeat(81);
 // Floor on how long the solving spinner stays visible — most puzzles solve
 // in a few ms, too fast to register as "spinning" without this.
 const MIN_SOLVING_MS = 500;
+// Sentinel beat index meaning "the last beat of whatever step is showing" —
+// the reading position a step is left at once it's applied (its result), so
+// walking backwards from there is what uncovers the reasoning.
+const LAST_BEAT = Number.MAX_SAFE_INTEGER;
 
 export type SolverStatus = 'editing' | 'solved' | 'stuck';
 
@@ -87,6 +94,18 @@ export interface UseSolver {
   readonly solving: boolean;
   /** The step at the current view — drives the highlight + detail box. */
   readonly currentStep: Step | null;
+  /** A step the engine has found but NOT applied yet: a hint is read through
+   * its beats first, exactly like a lesson, and only lands on the board when
+   * the last beat's Apply is taken. */
+  readonly pendingStep: Step | null;
+  /** Narration beats for the step being read (pending, else the viewed one) —
+   * the same templates the Learn lessons are built from. */
+  readonly beats: readonly ExplainBeat[];
+  /** Index into `beats` of the beat on screen. */
+  readonly beat: number;
+  /** The current beat in engine-Step shape, for the grid's highlight and
+   * candidate-marker helpers. */
+  readonly beatStep: Step | null;
   readonly problem: SolveProblem | null;
   readonly mistakes: readonly Mistake[] | null;
   readonly notice: string | null;
@@ -109,16 +128,42 @@ export interface UseSolver {
   clear(): void;
   load(input: string): void;
   solve(): void;
+  /** Find the next step and start reading it. While a step is pending this
+   * advances a beat (and applies it at the end), so one button can drive the
+   * whole walkthrough. */
   hint(): void;
+  /** One move forward/back through the narration: within the current step's
+   * beats, then across steps. Forward on a pending step's last beat applies
+   * it; back off its first beat drops the hint. */
+  readNext(): void;
+  readPrev(): void;
+  /** Commit the pending step to the board without reading the rest of it. */
+  applyPending(): void;
   /** Undo/redo the last mutating action (edits, notes, hint, solve). Bounded
    * to the current puzzle — Load/Clear discard the stacks rather than let
    * you undo into an unrelated previous grid. */
   undo(): void;
   redo(): void;
-  /** View the board after `n` applied steps (non-destructive scrubbing). */
+  /** View the board after `n` applied steps (non-destructive scrubbing),
+   * opening that step's explanation at its first beat. */
   viewStep(n: number): void;
   check(): void;
-  /** Close the solve panel (clears the step list; keeps the board). */
+  /** True while the step panel is hidden — the solve is still there, just out
+   * of the way (no panel, no dimming, no highlights). */
+  readonly stepsHidden: boolean;
+  /** Put the walkthrough away without losing it. Snaps the view to the end of
+   * the solve first, so the board shows all the work rather than whatever
+   * mid-scrub position was being read. */
+  hideSteps(): void;
+  showSteps(): void;
+  /**
+   * "Take it from here": keep the digits on screen but drop the solve — the
+   * viewed board becomes the puzzle, its candidates become the notes, and the
+   * step list goes away. Same re-base a manual edit does, which is what keeps
+   * a user's own solving from ever conflicting with a stale step list.
+   */
+  takeOver(): void;
+  /** Close the panel when it's only showing a mistake check. */
   dismiss(): void;
   clearProblem(): void;
 }
@@ -131,6 +176,9 @@ export function useSolver(): UseSolver {
   const [notes, setNotes] = useState<Uint16Array>(() => new Uint16Array(81));
   const [history, setHistory] = useState<readonly Step[]>([]);
   const [viewIndex, setViewIndex] = useState(0);
+  const [pending, setPending] = useState<Step | null>(null);
+  const [beat, setBeat] = useState(LAST_BEAT);
+  const [stepsHidden, setStepsHidden] = useState(false);
   const [stuck, setStuck] = useState(false);
   const [solving, setSolving] = useState(false);
   const [problem, setProblem] = useState<SolveProblem | null>(null);
@@ -142,14 +190,39 @@ export function useSolver(): UseSolver {
 
   // Full state (all steps) drives status + the next hint; display honours the view.
   const full = useMemo(() => replay(base, [...history]), [base, history]);
+  const currentStep = viewIndex > 0 ? (history[viewIndex - 1] ?? null) : null;
+
+  // Narration for the step being read. A pending step is narrated against the
+  // live board (it hasn't been applied); an applied one against the board as
+  // it stood BEFORE it — the position its reasoning actually describes.
+  const beats = useMemo<readonly ExplainBeat[]>(() => {
+    if (pending) return explainStep(pending, full);
+    if (!currentStep) return [];
+    return explainStep(currentStep, replay(base, [...history], viewIndex - 1));
+  }, [pending, full, currentStep, base, history, viewIndex]);
+
+  // `beat` is stored unclamped (LAST_BEAT means "however many this step has"),
+  // so switching steps never needs to know the new step's beat count.
+  const beatIndex = beats.length === 0 ? 0 : Math.min(beat, beats.length - 1);
+  const onLastBeat = beats.length === 0 || beatIndex === beats.length - 1;
+
+  // Which board the beat is read against: every beat but the last describes
+  // the position before the step landed, so scrubbing back through a step's
+  // reasoning rolls the board back with it. A pending step is never applied,
+  // so it always reads against the current board.
+  const boardIndex = pending || onLastBeat ? viewIndex : Math.max(0, viewIndex - 1);
   const display = useMemo(
-    () => replay(base, [...history], viewIndex),
-    [base, history, viewIndex],
+    () => replay(base, [...history], boardIndex),
+    [base, history, boardIndex],
+  );
+
+  const beatStep = useMemo(
+    () => (beats.length === 0 ? null : beatAsStep(beats[beatIndex]!)),
+    [beats, beatIndex],
   );
 
   const clueCount = useMemo(() => [...base].filter((c) => c !== '.').length, [base]);
   const status: SolverStatus = isSolved(full) ? 'solved' : stuck ? 'stuck' : 'editing';
-  const currentStep = viewIndex > 0 ? (history[viewIndex - 1] ?? null) : null;
 
   /** Guard a solve/hint request against the puzzle. */
   const validate = useCallback((): 'empty' | SolveProblem | null => {
@@ -215,8 +288,11 @@ export function useSolver(): UseSolver {
   }, []);
 
   const resetSolve = useCallback(() => {
+    setStepsHidden(false);
     setHistory([]);
     setViewIndex(0);
+    setPending(null);
+    setBeat(LAST_BEAT);
     setStuck(false);
     setProblem(null);
     setMistakes(null);
@@ -333,6 +409,13 @@ export function useSolver(): UseSolver {
   );
 
   const hint = useCallback(() => {
+    // Mid-read: the same button walks the beats and applies at the end, so
+    // "Hint" never abandons a step the user is halfway through.
+    if (pending) {
+      if (beatIndex < beats.length - 1) setBeat(beatIndex + 1);
+      else applyPendingRef.current();
+      return;
+    }
     const v = validate();
     if (v === 'empty') {
       setNotice('Enter or paste a puzzle first.');
@@ -359,17 +442,34 @@ export function useSolver(): UseSolver {
     const g = cloneGrid(full);
     if (userStep) applyStep(g, userStep);
     const step = engineHint(g);
-    const added = [...(userStep ? [userStep] : []), ...(step ? [step] : [])];
-    if (added.length > 0) {
-      const nextHistory = [...history, ...added];
+    // The user's own verified eliminations aren't a technique to be walked
+    // through — they're work already done, so they land immediately and the
+    // pending read is the technique the engine found on top of them.
+    if (userStep) {
+      const nextHistory = [...history, userStep];
       setHistory(nextHistory);
       setViewIndex(nextHistory.length);
-      setStuck(step === null);
       setNotes(computeCandidates(replay(base, nextHistory)));
+    }
+    if (step) {
+      setPending(step);
+      setBeat(0);
+      setStuck(false);
     } else {
       setStuck(true);
     }
-  }, [validate, full, history, base, pushUndo, userNotesStep, badNotesNotice]);
+  }, [
+    validate,
+    full,
+    history,
+    base,
+    pending,
+    beatIndex,
+    beats.length,
+    pushUndo,
+    userNotesStep,
+    badNotesNotice,
+  ]);
 
   const solve = useCallback(() => {
     const v = validate();
@@ -410,6 +510,8 @@ export function useSolver(): UseSolver {
         ];
         setHistory(nextHistory);
         setViewIndex(nextHistory.length);
+        setPending(null);
+        setBeat(LAST_BEAT);
         setStuck(result.status !== 'solved' && !isSolved(next));
         setNotes(computeCandidates(replay(base, nextHistory)));
         // Most puzzles solve in a few ms — too fast for the spinner to read
@@ -422,18 +524,116 @@ export function useSolver(): UseSolver {
     });
   }, [validate, full, history, base, pushUndo, userNotesStep, badNotesNotice]);
 
-  const viewStep = useCallback(
-    (n: number) => {
+  /** Beat count of the step at view position `n` (1-based), without building
+   * it twice — used to know whether a beat is a step's last one. */
+  const beatCountAt = useCallback(
+    (n: number): number => {
+      const step = n > 0 ? history[n - 1] : undefined;
+      if (!step) return 0;
+      return explainStep(step, replay(base, [...history], n - 1)).length;
+    },
+    [base, history],
+  );
+
+  /** Board a beat is read against — every beat but a step's last describes the
+   * position before that step landed. */
+  const boardIndexOf = useCallback(
+    (view: number, idx: number, count: number) =>
+      count === 0 || idx >= count - 1 ? view : Math.max(0, view - 1),
+    [],
+  );
+
+  /** Re-derive the pencil marks for the board a beat move just exposed, the
+   * same way scrubbing between steps does. */
+  const syncNotes = useCallback(
+    (view: number, idx: number, count: number) => {
+      if (history.length === 0) return;
+      setNotes(
+        computeCandidates(replay(base, [...history], boardIndexOf(view, idx, count))),
+      );
+    },
+    [base, history, boardIndexOf],
+  );
+
+  /** Jump to a step, opening it at `startBeat` (`LAST_BEAT` = its outcome). */
+  const goToStep = useCallback(
+    (n: number, startBeat: number) => {
       const clamped = Math.max(0, Math.min(n, history.length));
       setViewIndex(clamped);
-      // Scrubbing to a different step shows a different board — re-derive
-      // candidates for it rather than leaving stale notes from the last step.
-      if (history.length > 0) {
-        setNotes(computeCandidates(replay(base, [...history], clamped)));
-      }
+      setPending(null);
+      setBeat(startBeat);
+      syncNotes(clamped, startBeat, beatCountAt(clamped));
     },
-    [history, base],
+    [history.length, syncNotes, beatCountAt],
   );
+
+  // Picking a step out of the list opens its explanation at the beginning —
+  // someone who clicks "XY-Wing" wants to be told what an XY-Wing is, not
+  // dropped on the closing "remove 9 from r1c8" line.
+  const viewStep = useCallback((n: number) => goToStep(n, 0), [goToStep]);
+
+  const applyPending = useCallback(() => {
+    if (!pending) return;
+    pushUndo();
+    const nextHistory = [...history, pending];
+    setHistory(nextHistory);
+    setViewIndex(nextHistory.length);
+    setPending(null);
+    // Land on the outcome, not back at the opening beat — the step has been
+    // taken, so the board and the narration should both show it done.
+    setBeat(LAST_BEAT);
+    setNotes(computeCandidates(replay(base, nextHistory)));
+    setStuck(false);
+  }, [pending, history, base, pushUndo]);
+
+  // `hint` is defined above and calls this at a pending step's last beat; the
+  // ref carries that one reference without reordering the two.
+  const applyPendingRef = useRef(applyPending);
+  applyPendingRef.current = applyPending;
+
+  /**
+   * One forward move through the solve, at beat granularity: advance within
+   * the step being read, apply it if it's a pending one that's been read
+   * through, else open the next applied step at its first beat. Backwards
+   * mirrors it, landing on the previous step's outcome.
+   */
+  const readNext = useCallback(() => {
+    if (beats.length > 0 && beatIndex < beats.length - 1) {
+      setBeat(beatIndex + 1);
+      if (!pending) syncNotes(viewIndex, beatIndex + 1, beats.length);
+      return;
+    }
+    if (pending) {
+      applyPending();
+      return;
+    }
+    if (viewIndex < history.length) goToStep(viewIndex + 1, 0);
+  }, [
+    beats.length,
+    beatIndex,
+    pending,
+    applyPending,
+    syncNotes,
+    viewIndex,
+    history.length,
+    goToStep,
+  ]);
+
+  const readPrev = useCallback(() => {
+    if (beats.length > 0 && beatIndex > 0) {
+      setBeat(beatIndex - 1);
+      if (!pending) syncNotes(viewIndex, beatIndex - 1, beats.length);
+      return;
+    }
+    // Backing out of a pending step's first beat drops the hint entirely —
+    // nothing was applied, so there's nothing to undo.
+    if (pending) {
+      setPending(null);
+      setBeat(LAST_BEAT);
+      return;
+    }
+    if (viewIndex > 0) goToStep(viewIndex - 1, LAST_BEAT);
+  }, [beats.length, beatIndex, pending, syncNotes, viewIndex, goToStep]);
 
   const check = useCallback(() => {
     // Overlay the user's pencil marks so impossible-candidate / missing-digit
@@ -457,6 +657,35 @@ export function useSolver(): UseSolver {
         : `Found ${found.length} problem(s).`,
     );
   }, [full, notes]);
+
+  const hideSteps = useCallback(() => {
+    // Snap to the end of the solve on the way out: hiding at step 12 of 51
+    // would otherwise leave a half-applied board on screen with the
+    // explanation for it now gone.
+    if (history.length > 0) goToStep(history.length, LAST_BEAT);
+    // A pending hint was never applied — there's nothing to keep.
+    setPending(null);
+    setMistakes(null);
+    setStepsHidden(true);
+  }, [history.length, goToStep]);
+
+  const showSteps = useCallback(() => setStepsHidden(false), []);
+
+  const takeOver = useCallback(() => {
+    if (history.length === 0) return;
+    pushUndo();
+    // Exactly what a manual edit does (see `setDigit`): the board being viewed
+    // becomes the new `base`, so nothing on screen is lost and no step list
+    // survives that wasn't replayed from it.
+    setBase(serializeGrid(display));
+    setNotes(computeCandidates(display));
+    resetSolve();
+    // After resetSolve, which clears the notice — the board changing hands is
+    // otherwise only visible as the status badge flipping back to "editing".
+    setNotice(
+      'The solve is yours now — these digits are the puzzle, and the notes are their candidates. Undo brings the step list back.',
+    );
+  }, [history.length, display, pushUndo, resetSolve]);
 
   const dismiss = useCallback(() => resetSolve(), [resetSolve]);
   const clearProblem = useCallback(() => setProblem(null), []);
@@ -502,6 +731,10 @@ export function useSolver(): UseSolver {
     status,
     solving,
     currentStep,
+    pendingStep: pending,
+    beats,
+    beat: beatIndex,
+    beatStep,
     problem,
     mistakes,
     notice,
@@ -520,10 +753,17 @@ export function useSolver(): UseSolver {
     load,
     solve,
     hint,
+    readNext,
+    readPrev,
+    applyPending,
     undo,
     redo,
     viewStep,
     check,
+    stepsHidden,
+    hideSteps,
+    showSteps,
+    takeOver,
     dismiss,
     clearProblem,
   };

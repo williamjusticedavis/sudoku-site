@@ -1,7 +1,12 @@
 import { PEERS } from '@sudoku/engine';
-import { useEffect, useId, useMemo, useState } from 'react';
-import type { CandidateMarker, CellRole } from '../solver/highlights.js';
-import { buildCandidateMarkers, buildHighlightMap } from '../solver/highlights.js';
+import { useEffect, useMemo, useState } from 'react';
+import type { CandidateMarker } from '../solver/highlights.js';
+import {
+  buildCandidateMarkers,
+  buildHighlightMap,
+  ROLE_BG,
+} from '../solver/highlights.js';
+import { StepOverlays } from '../solver/stepOverlay.js';
 import { parseLessonGrid, stepCells, toEngineStep } from './stepAdapter.js';
 import type { LessonStep } from './types.js';
 
@@ -15,23 +20,6 @@ type Interaction = 'match' | 'peer';
 const INTERACTION_BG: Record<Interaction, string> = {
   match: 'bg-yellow-200 dark:bg-yellow-600/40',
   peer: 'bg-neutral-300/70 dark:bg-neutral-700/70',
-};
-
-/** Cell backgrounds per solve-step role. Started identical to the solver
- * grid's own `ROLE_BG` (`features/solver/SudokuGrid.tsx`); `base`/`related`
- * were deliberately swapped here (base=purple, related=light blue) during
- * the Learn lesson polish pass for consistency across every lesson's own
- * base/related pairing — the solver grid's copy was intentionally left
- * unswapped, so the two now diverge on purpose. */
-const ROLE_BG: Record<CellRole, string> = {
-  placement: 'bg-emerald-200 dark:bg-emerald-800/70',
-  elimination: 'bg-rose-200 dark:bg-rose-800/70',
-  base: 'bg-violet-200 dark:bg-violet-900/50',
-  cover: 'bg-indigo-200 dark:bg-indigo-800/70',
-  fin: 'bg-amber-200 dark:bg-amber-700/70',
-  related: 'bg-sky-200 dark:bg-sky-800/70',
-  focus: 'bg-slate-300 dark:bg-neutral-600/70',
-  scan: 'bg-slate-100 dark:bg-neutral-800/50',
 };
 
 function CandidateMark({ marker }: { marker: CandidateMarker }) {
@@ -117,87 +105,6 @@ interface LessonBoardProps {
  * grid-line span framing it — so the board can draw a light outline around
  * "the unit" a beat's text is pointing at (e.g. "Look at column 9"). Anything
  * short of a full unit yields no outline. */
-function unitOutlineSpan(
-  cells: readonly number[],
-): { gridRow: string; gridColumn: string } | null {
-  const unique = new Set(cells);
-  if (unique.size !== 9) return null;
-  const rows = new Set([...unique].map((c) => Math.floor(c / 9)));
-  const cols = new Set([...unique].map((c) => c % 9));
-  const boxes = new Set(
-    [...unique].map(
-      (c) => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3),
-    ),
-  );
-  if (rows.size === 1) {
-    const r = [...rows][0]!;
-    return { gridRow: `${r + 1} / ${r + 2}`, gridColumn: '1 / 10' };
-  }
-  if (cols.size === 1) {
-    const c = [...cols][0]!;
-    return { gridColumn: `${c + 1} / ${c + 2}`, gridRow: '1 / 10' };
-  }
-  if (boxes.size === 1) {
-    const b = [...boxes][0]!;
-    const br = Math.floor(b / 3);
-    const bc = b % 3;
-    return {
-      gridRow: `${br * 3 + 1} / ${br * 3 + 4}`,
-      gridColumn: `${bc * 3 + 1} / ${bc * 3 + 4}`,
-    };
-  }
-  return null;
-}
-
-/** Every outline to draw for a step. Two paths:
- *  - A template that already knows exactly which unit(s) it wants framed
- *    hands them over explicitly as one or more `outline-unit`-role groups
- *    (e.g. X-Wing's two base rows, drawn as two separate outlines at once —
- *    locked-candidates/naked-subset/hidden-subset use just one).
- *  - Otherwise, fall back to the legacy merge of 'related'/'placement'/
- *    'focus' cells into a single implied unit (cross-hatching/last-possible-
- *    number, which never set 'outline-unit' explicitly).
- * Each candidate cell set only produces an outline if it's exactly one full
- * row/column/box — most fish/wing patterns aren't, and get none. */
-function unitOutlineSpans(step: LessonStep): { gridRow: string; gridColumn: string }[] {
-  const explicitGroups = (step.highlights ?? []).filter((g) => g.role === 'outline-unit');
-  if (explicitGroups.length > 0) {
-    return explicitGroups
-      .map((g) => unitOutlineSpan(g.cells))
-      .filter((s): s is { gridRow: string; gridColumn: string } => s !== null);
-  }
-  const roles = new Set(['related', 'placement', 'focus']);
-  const cells: number[] = [];
-  for (const g of step.highlights ?? []) if (roles.has(g.role)) cells.push(...g.cells);
-  for (const p of step.placements ?? []) cells.push(p.cell);
-  const span = unitOutlineSpan(cells);
-  return span ? [span] : [];
-}
-
-/** Center of cell `i` in a 9×9 unit-square coordinate space (1 unit = 1 cell). */
-function cellCenter(i: number): [number, number] {
-  return [(i % 9) + 0.5, Math.floor(i / 9) + 0.5];
-}
-
-/** An arrow's line, trimmed back from both cell centers so it doesn't run
- * straight through either cell's digit — it reads as pointing from the
- * blocking cell's neighborhood to the excluded cell's, not through them. */
-function arrowSegment(from: number, to: number, inset = 0.32) {
-  const [x1, y1] = cellCenter(from);
-  const [x2, y2] = cellCenter(to);
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len;
-  const uy = dy / len;
-  return {
-    x1: x1 + ux * inset,
-    y1: y1 + uy * inset,
-    x2: x2 - ux * inset,
-    y2: y2 - uy * inset,
-  };
-}
-
 export function LessonBoard({
   grid,
   step,
@@ -206,10 +113,6 @@ export function LessonBoard({
   showCandidates = true,
   interactive = true,
 }: LessonBoardProps) {
-  const arrowMarkerId = useId();
-  const arrows = step?.arrows ?? [];
-  const xLines = step?.xLines ?? [];
-
   const [selected, setSelected] = useState<number | null>(null);
   const [digitHighlight, setDigitHighlight] = useState<number | null>(null);
   // Drop any selection/activation the moment interaction turns off (the hint
@@ -219,7 +122,7 @@ export function LessonBoard({
     setSelected(null);
     setDigitHighlight(null);
   }, [grid, interactive]);
-  const { placed, candidates, roleMap, markerMap, focus, unitOutlines } = useMemo(() => {
+  const { placed, candidates, roleMap, markerMap, focus } = useMemo(() => {
     const parsed = parseLessonGrid(grid);
     const engineStep = step ? toEngineStep(step) : null;
     const frameCells = step ? stepCells(step) : [];
@@ -236,7 +139,6 @@ export function LessonBoard({
       roleMap: buildHighlightMap(engineStep),
       markerMap: buildCandidateMarkers(engineStep),
       focus: focusSet,
-      unitOutlines: step ? unitOutlineSpans(step) : [],
     };
   }, [grid, step, dimOutsideFocus, focusMode]);
 
@@ -339,90 +241,7 @@ export function LessonBoard({
           </div>
         );
       })}
-      {unitOutlines.map((span, i) => (
-        // Absolutely positioned so it's sized against the grid lines named in
-        // `span` without joining auto-placement — a normal grid item
-        // spanning a whole row/column/box would otherwise compete with the 81
-        // cell divs for space and shove them out of position. `inset-0` is
-        // required too: grid-row/grid-column alone only anchor an abspos
-        // item's static position, they don't stretch it — without inset-0 it
-        // collapses to a 0×0 box (just the border, a stray little square).
-        // Usually just one span; X-Wing draws two at once (both base lines).
-        <div
-          key={i}
-          aria-hidden
-          className="pointer-events-none absolute inset-0 border-2 border-cyan-600 dark:border-cyan-400"
-          style={span}
-        />
-      ))}
-      {arrows.length > 0 && (
-        // Cross-hatching: a line from each blocking digit straight to the
-        // one cell it rules out — concrete instead of leaving the learner to
-        // trace the highlighted scanline themselves. viewBox is a 9×9 unit
-        // grid (1 unit = 1 cell), so cell-index math maps directly to it.
-        <svg
-          aria-hidden
-          viewBox="0 0 9 9"
-          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-        >
-          <defs>
-            <marker
-              id={arrowMarkerId}
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="4"
-              markerHeight="4"
-              markerUnits="strokeWidth"
-              orient="auto-start-reverse"
-            >
-              <path d="M0,0 L10,5 L0,10 z" className="fill-rose-600 dark:fill-rose-400" />
-            </marker>
-          </defs>
-          {arrows.map((a, i) => {
-            const seg = arrowSegment(a.from, a.to);
-            return (
-              <line
-                key={i}
-                x1={seg.x1}
-                y1={seg.y1}
-                x2={seg.x2}
-                y2={seg.y2}
-                strokeWidth="0.07"
-                className="stroke-rose-600 dark:stroke-rose-400"
-                markerEnd={`url(#${arrowMarkerId})`}
-              />
-            );
-          })}
-        </svg>
-      )}
-      {xLines.length > 0 && (
-        // X-Wing: connect the pattern's 4 corner cells corner-to-corner so
-        // the shape reads literally as an X, not just two highlighted rows
-        // and two highlighted columns the learner has to mentally cross.
-        // Plain lines, no arrowhead — this isn't "blocks that", just a shape.
-        <svg
-          aria-hidden
-          viewBox="0 0 9 9"
-          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-        >
-          {xLines.map((l, i) => {
-            const seg = arrowSegment(l.from, l.to);
-            return (
-              <line
-                key={i}
-                x1={seg.x1}
-                y1={seg.y1}
-                x2={seg.x2}
-                y2={seg.y2}
-                strokeWidth="0.06"
-                strokeDasharray={l.style === 'dashed' ? '0.18 0.12' : undefined}
-                className="stroke-emerald-600 dark:stroke-emerald-400"
-              />
-            );
-          })}
-        </svg>
-      )}
+      <StepOverlays step={step ?? null} />
     </div>
   );
 }

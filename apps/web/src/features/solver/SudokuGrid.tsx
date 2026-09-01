@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, type KeyboardEvent } from 'react';
-import type { CandidateMarker, CellRole } from './highlights.js';
+import { ROLE_BG, type CandidateMarker, type CellRole } from './highlights.js';
+import { StepOverlays, type OverlayStep } from './stepOverlay.js';
 
 /** Transient, user-interaction highlighting (independent of solve-step roles). */
 export type Interaction = 'match' | 'peer';
@@ -17,6 +18,13 @@ interface SudokuGridProps {
   mistakeCells: ReadonlySet<number>;
   /** Per-cell candidate annotations for the current step (cell -> digit -> marker). */
   candidateMarkers: Map<number, Map<number, CandidateMarker>>;
+  /** Unit outline / arrows / link lines for the narrated beat being read, or
+   * null when no step is on screen. */
+  overlay: OverlayStep | null;
+  /** Cells the step being read actually involves — everything else fades back
+   * so the pattern reads at a glance. Null leaves the whole board at full
+   * strength (no step on screen). */
+  focus: ReadonlySet<number> | null;
   /** Interaction highlights: same-digit ('match') and seen-cells ('peer'). */
   interaction: Map<number, Interaction>;
   /** Digit to emphasise inside pencil marks (from double-click), or null. */
@@ -39,17 +47,6 @@ interface SudokuGridProps {
 const INTERACTION_BG: Record<Interaction, string> = {
   match: 'bg-yellow-200 dark:bg-yellow-600/40',
   peer: 'bg-neutral-300/70 dark:bg-neutral-700/70',
-};
-
-const ROLE_BG: Record<CellRole, string> = {
-  placement: 'bg-emerald-200 dark:bg-emerald-800/70',
-  elimination: 'bg-rose-200 dark:bg-rose-800/70',
-  base: 'bg-sky-200 dark:bg-sky-800/70',
-  cover: 'bg-indigo-200 dark:bg-indigo-800/70',
-  fin: 'bg-amber-200 dark:bg-amber-700/70',
-  related: 'bg-violet-200 dark:bg-violet-900/50',
-  focus: 'bg-neutral-300 dark:bg-neutral-600/70',
-  scan: 'bg-neutral-200 dark:bg-neutral-800/50',
 };
 
 const MISTAKE_BG = 'bg-rose-300 dark:bg-rose-800';
@@ -119,6 +116,8 @@ interface CellProps {
   inter: Interaction | undefined;
   isSelected: boolean;
   isMistake: boolean;
+  /** Fade this cell back: it plays no part in the step being read. */
+  dim: boolean;
   highlightDigit: number | null;
   markers: Map<number, CandidateMarker> | undefined;
   onSelect(index: number): void;
@@ -135,6 +134,7 @@ const Cell = memo(function Cell({
   inter,
   isSelected,
   isMistake,
+  dim,
   highlightDigit,
   markers,
   onSelect,
@@ -154,45 +154,55 @@ const Cell = memo(function Cell({
         : 'bg-white dark:bg-neutral-900';
 
   return (
-    <button
-      type="button"
-      role="gridcell"
-      // Not a tab stop and no own focus ring: the grid <div> owns keyboard
-      // focus (arrow keys), and selection is shown by the state-driven blue
-      // ring below. Otherwise the UA outline sticks to the last-clicked cell
-      // while arrow-key navigation moves the selection elsewhere.
-      tabIndex={-1}
-      onPointerDown={() => onSelect(index)}
-      onClick={() => onSelect(index)}
-      onDoubleClick={() => onDoubleClick(index)}
+    // Borders live on this outer wrapper so they never fade under `dim` —
+    // only the fill and text (the button inside) dim, keeping every grid
+    // line, including ones framing the highlighted region, crisp regardless
+    // of what's dimmed around it. Same split the lesson board uses.
+    <div
       className={[
-        'flex h-full w-full touch-manipulation items-center justify-center text-[clamp(0.9rem,6.2cqw,3rem)] font-medium outline-none select-none',
-        'border-r border-b border-neutral-300 dark:border-neutral-700',
-        bg,
-        isUser
-          ? 'font-bold text-neutral-900 dark:text-neutral-100'
-          : 'text-blue-600 dark:text-blue-400',
+        'relative border-r border-b border-neutral-300 dark:border-neutral-700',
         col % 3 === 2 && col !== 8
           ? 'border-r-2 border-r-neutral-600 dark:border-r-neutral-300'
           : '',
         row % 3 === 2 && row !== 8
           ? 'border-b-2 border-b-neutral-600 dark:border-b-neutral-300'
           : '',
-        isMistake
-          ? 'z-10 ring-2 ring-inset ring-rose-500'
-          : isSelected
-            ? 'z-10 ring-2 ring-inset ring-blue-500'
-            : '',
       ].join(' ')}
     >
-      {digit !== 0 ? (
-        digit
-      ) : noteMask !== 0 || (markers && markers.size > 0) ? (
-        <NoteMarks mask={noteMask} highlightDigit={highlightDigit} markers={markers} />
-      ) : (
-        ''
-      )}
-    </button>
+      <button
+        type="button"
+        role="gridcell"
+        // Not a tab stop and no own focus ring: the grid <div> owns keyboard
+        // focus (arrow keys), and selection is shown by the state-driven blue
+        // ring below. Otherwise the UA outline sticks to the last-clicked cell
+        // while arrow-key navigation moves the selection elsewhere.
+        tabIndex={-1}
+        onPointerDown={() => onSelect(index)}
+        onClick={() => onSelect(index)}
+        onDoubleClick={() => onDoubleClick(index)}
+        className={[
+          'flex h-full w-full touch-manipulation items-center justify-center text-[clamp(0.9rem,6.2cqw,3rem)] font-medium outline-none select-none',
+          bg,
+          isUser
+            ? 'font-bold text-neutral-900 dark:text-neutral-100'
+            : 'text-blue-600 dark:text-blue-400',
+          dim ? 'opacity-25' : '',
+          isMistake
+            ? 'z-10 ring-2 ring-inset ring-rose-500'
+            : isSelected
+              ? 'z-10 ring-2 ring-inset ring-blue-500'
+              : '',
+        ].join(' ')}
+      >
+        {digit !== 0 ? (
+          digit
+        ) : noteMask !== 0 || (markers && markers.size > 0) ? (
+          <NoteMarks mask={noteMask} highlightDigit={highlightDigit} markers={markers} />
+        ) : (
+          ''
+        )}
+      </button>
+    </div>
   );
 });
 
@@ -204,6 +214,8 @@ export function SudokuGrid({
   highlight,
   mistakeCells,
   candidateMarkers,
+  overlay,
+  focus,
   interaction,
   highlightDigit,
   editable,
@@ -307,7 +319,7 @@ export function SudokuGrid({
       tabIndex={0}
       onKeyDown={handleKey}
       aria-label="Sudoku grid"
-      className="text-scale-fixed grid aspect-square w-full max-w-[560px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 outline-none [container-type:size] lg:w-[min(100%,100cqh)] lg:max-w-none dark:border-neutral-300"
+      className="text-scale-fixed relative grid aspect-square w-full max-w-[560px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 outline-none [container-type:size] lg:w-[min(100%,100cqh)] lg:max-w-none dark:border-neutral-300"
     >
       {Array.from({ length: 81 }, (_, i) => (
         <Cell
@@ -320,12 +332,14 @@ export function SudokuGrid({
           inter={interaction.get(i)}
           isSelected={selected === i}
           isMistake={mistakeCells.has(i)}
+          dim={focus !== null && !focus.has(i)}
           highlightDigit={highlightDigit}
           markers={candidateMarkers.get(i)}
           onSelect={handleCellClick}
           onDoubleClick={handleCellDoubleClick}
         />
       ))}
+      <StepOverlays step={overlay} />
     </div>
   );
 }

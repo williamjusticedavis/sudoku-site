@@ -1,10 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BOXES, COLS, PEERS, ROWS } from '@sudoku/engine';
+import {
+  BOXES,
+  COLS,
+  PEERS,
+  ROWS,
+  summarizeStep,
+  techniqueName,
+  techniqueTier,
+} from '@sudoku/engine';
 import { useSolver } from '../features/solver/useSolver.js';
 import {
   buildCandidateMarkers,
   buildHighlightMap,
+  stepCells,
 } from '../features/solver/highlights.js';
 import { SudokuGrid, type Interaction } from '../features/solver/SudokuGrid.js';
 import { MobileStepper } from '../features/solver/MobileStepper.js';
@@ -16,6 +25,8 @@ import { ProblemBody } from '../features/solver/ProblemBody.js';
 import { ToolbarIconButton } from '../features/solver/ToolbarIconButton.js';
 import { UndoIcon, RedoIcon } from '../features/solver/icons.js';
 import { StatusBadge } from '../features/solver/StatusBadge.js';
+import { StepNarration } from '../features/solver/StepNarration.js';
+import { TIER_ACCENT } from '../features/learn/tierAccent.js';
 
 export const Route = createFileRoute('/')({ component: SolverPage });
 
@@ -28,6 +39,13 @@ const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
 const btnGhost = `${btn} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`;
 const btnActive = `${btn} border border-blue-500 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-200`;
 const btnAccent = `${btn} border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40`;
+/** Tailwind text colour for a technique's curriculum tier, or null when it has
+ * none (forcing chain, `user-notes`). */
+function tierOf(technique: string): string | null {
+  const tier = techniqueTier(technique);
+  return tier ? TIER_ACCENT[tier].heading : null;
+}
+
 const groupLabel =
   'mb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400';
 
@@ -48,9 +66,34 @@ function SolverPage() {
   // MobileStepper below the grid handles step-by-step navigation instead).
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const gridWrapperRef = useRef<HTMLDivElement>(null);
-  const highlight = buildHighlightMap(s.currentStep);
-  const candidateMarkers = buildCandidateMarkers(s.currentStep);
-  const panelOpen = s.history.length > 0 || s.mistakes !== null;
+  // Highlights follow the BEAT being read, not the whole step: that's what
+  // makes a pattern build up on the board the way it does in a lesson. Hiding
+  // the walkthrough takes the whole treatment off the board — highlights,
+  // dimming, outlines — leaving just the position.
+  const beat = s.stepsHidden ? null : (s.beats[s.beat] ?? null);
+  const highlight = buildHighlightMap(s.stepsHidden ? null : s.beatStep);
+  const candidateMarkers = buildCandidateMarkers(s.stepsHidden ? null : s.beatStep);
+  const readStep = s.stepsHidden ? null : (s.pendingStep ?? s.currentStep);
+  // Dim everything the beat doesn't name, the way a lesson does. BUG+1 is the
+  // one pattern whose claim is about the whole board ("every unsolved cell is
+  // bivalue except one"), so its unsolved cells stay lit too — same exception
+  // the lesson page makes.
+  const focus = useMemo(() => {
+    if (!beat) return null;
+    const set = new Set(stepCells(beat));
+    if (readStep?.technique === 'bug+1') {
+      for (let i = 0; i < 81; i++) if (s.display.placed[i] === 0) set.add(i);
+    }
+    return set;
+  }, [beat, readStep, s.display]);
+  const canReadPrev = s.beat > 0 || s.pendingStep !== null || s.viewIndex > 0;
+  const canReadNext =
+    s.pendingStep !== null ||
+    s.beat < s.beats.length - 1 ||
+    s.viewIndex < s.history.length;
+  const panelOpen =
+    !s.stepsHidden &&
+    (s.history.length > 0 || s.mistakes !== null || s.pendingStep !== null);
 
   // On mobile the step list sits below the grid, so jumping to a step (or
   // stepping via the docked mobile bar) leaves the grid off-screen — bring it
@@ -111,6 +154,22 @@ function SolverPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [s.undo, s.redo]);
+
+  // Escape puts the walkthrough away. Only when it's actually on screen —
+  // otherwise this would swallow the key an open <dialog> (Paste, Upload,
+  // the confirm modals) handles natively to close itself.
+  useEffect(() => {
+    if (!panelOpen || s.history.length === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('dialog, input, textarea, select')) return;
+      e.preventDefault();
+      s.hideSteps();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [panelOpen, s.history.length, s.hideSteps]);
 
   // Click on empty page area (not the grid, not a control) deselects.
   useEffect(() => {
@@ -246,12 +305,28 @@ function SolverPage() {
               </button>
               <button
                 type="button"
-                className={`${btnGhost} lg:w-full`}
+                className={`${s.pendingStep ? btnActive : btnGhost} lg:w-full`}
                 onClick={s.hint}
                 disabled={s.clueCount === 0 || s.solving}
+                title={
+                  s.pendingStep
+                    ? 'Read the next line of this hint (and apply it at the end)'
+                    : 'Find the next step and walk through why it works'
+                }
               >
-                Hint
+                {!s.pendingStep ? 'Hint' : s.beat < s.beats.length - 1 ? 'Next' : 'Apply'}
               </button>
+              {s.stepsHidden && s.history.length > 0 && (
+                // The way back in after ✕ — the solve was never thrown away.
+                <button
+                  type="button"
+                  className={`${btnGhost} lg:col-span-2 lg:w-full`}
+                  onClick={s.showSteps}
+                  title="Show the walkthrough again"
+                >
+                  Steps ({s.history.length})
+                </button>
+              )}
             </div>
           </div>
 
@@ -369,6 +444,8 @@ function SolverPage() {
               highlight={highlight}
               mistakeCells={mistakeCells}
               candidateMarkers={candidateMarkers}
+              overlay={beat}
+              focus={focus}
               interaction={interaction}
               highlightDigit={digitHighlight}
               editable={!s.solving}
@@ -435,6 +512,11 @@ function SolverPage() {
                 {s.viewIndex} / {s.history.length} step{s.history.length === 1 ? '' : 's'}
               </span>
             )}
+            {s.pendingStep && (
+              <span className="text-sm text-blue-600 dark:text-blue-400">
+                Reading a hint — apply it to take the step.
+              </span>
+            )}
           </div>
           {s.status === 'stuck' && (
             <div className="max-w-md rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
@@ -470,28 +552,55 @@ function SolverPage() {
         {/* Right: solve process */}
         {panelOpen && (
           <section className="flex min-h-0 w-full min-w-0 max-w-md flex-col">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold">
-                {s.history.length > 0 ? 'Steps' : 'Mistake check'}
+                {s.history.length > 0 || s.pendingStep ? 'Steps' : 'Mistake check'}
               </h2>
-              <button
-                type="button"
-                aria-label="Close solve panel"
-                onClick={s.dismiss}
-                className="rounded p-1 text-lg leading-none text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-1">
+                {s.history.length > 0 && (
+                  // Keeps every digit on screen and drops the solve — the
+                  // board becomes yours to finish. Distinct from hiding,
+                  // which keeps the step list intact behind the ✕.
+                  <button
+                    type="button"
+                    onClick={s.takeOver}
+                    title="Keep these digits and carry on solving by hand — the step list goes away"
+                    className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                  >
+                    Take it from here
+                  </button>
+                )}
+                <button
+                  type="button"
+                  aria-label={s.history.length > 0 ? 'Hide steps' : 'Close mistake check'}
+                  title={
+                    s.history.length > 0
+                      ? 'Hide the walkthrough (Esc) — the solve is kept, reopen it with Steps'
+                      : 'Close'
+                  }
+                  onClick={s.history.length > 0 ? s.hideSteps : s.dismiss}
+                  className="rounded p-1 text-lg leading-none text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            {s.currentStep && (
+            {readStep && (
               // Hidden on mobile — the docked MobileStepper below the grid
               // shows the same thing without needing to scroll down to it.
-              <div className="mb-4 hidden rounded-md border border-neutral-200 p-3 lg:block dark:border-neutral-800">
-                <div className="text-xs font-semibold tracking-wide text-neutral-500 uppercase">
-                  {s.currentStep.technique}
-                </div>
-                <p className="mt-1 text-sm">{s.currentStep.description}</p>
+              <div className="mb-4 hidden lg:block">
+                <StepNarration
+                  step={readStep}
+                  beats={s.beats}
+                  beat={s.beat}
+                  pending={s.pendingStep !== null}
+                  canPrev={canReadPrev}
+                  canNext={canReadNext}
+                  onPrev={s.readPrev}
+                  onNext={s.readNext}
+                  onApply={s.applyPending}
+                />
               </div>
             )}
 
@@ -553,9 +662,22 @@ function SolverPage() {
                         <span className="mr-2 tabular-nums text-neutral-400">
                           {i + 1}.
                         </span>
-                        <span className="font-medium">{step.technique}</span>
+                        <span
+                          className={[
+                            'font-medium',
+                            // Tier colour, same one the Learn section gives
+                            // that technique — a solve reads as a difficulty
+                            // profile at a glance (green singles, rose
+                            // master-tier work). Uncoloured for the
+                            // forcing-chain backstop and your own notes,
+                            // which aren't curriculum.
+                            tierOf(step.technique) ?? '',
+                          ].join(' ')}
+                        >
+                          {techniqueName(step.technique)}
+                        </span>
                         <span className="ml-1 text-neutral-500 dark:text-neutral-400">
-                          {step.description}
+                          {summarizeStep(step)}
                         </span>
                       </button>
                     </li>
@@ -567,17 +689,22 @@ function SolverPage() {
         )}
       </div>
 
-      {s.history.length > 0 && (
+      {!s.stepsHidden && (s.history.length > 0 || s.pendingStep) && (
         <MobileStepper
-          step={s.currentStep}
+          step={readStep}
+          beats={s.beats}
+          beat={s.beat}
+          pending={s.pendingStep !== null}
           viewIndex={s.viewIndex}
           totalSteps={s.history.length}
+          canPrev={canReadPrev}
+          canNext={canReadNext}
           onPrev={() => {
-            s.viewStep(s.viewIndex - 1);
+            s.readPrev();
             scrollToGridOnMobile();
           }}
           onNext={() => {
-            s.viewStep(s.viewIndex + 1);
+            s.readNext();
             scrollToGridOnMobile();
           }}
         />
