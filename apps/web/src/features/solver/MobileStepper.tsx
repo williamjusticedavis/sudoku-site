@@ -36,7 +36,7 @@ export function MobileStepper({
         <div className="min-w-0 flex-1 px-1 text-center">
           {step ? (
             <>
-              <div className="flex items-center justify-center gap-2 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+              <div className="flex items-center justify-center gap-2 text-[0.6875rem] font-semibold tracking-wide text-neutral-500 uppercase">
                 <span className="truncate">{step.technique}</span>
                 <span className="shrink-0 tabular-nums text-neutral-400">
                   {viewIndex}/{totalSteps}

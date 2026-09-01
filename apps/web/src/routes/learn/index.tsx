@@ -120,7 +120,7 @@ function TierTactics({
           className={`rounded-xl border border-dashed p-3 sm:col-span-2 ${accent.family}`}
         >
           <div
-            className={`mb-2 text-[11px] font-semibold tracking-wide uppercase ${accent.familyLabel}`}
+            className={`mb-2 text-[0.6875rem] font-semibold tracking-wide uppercase ${accent.familyLabel}`}
           >
             {family.label}
           </div>

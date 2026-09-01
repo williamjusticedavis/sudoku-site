@@ -29,7 +29,7 @@ const btnGhost = `${btn} border border-neutral-300 hover:bg-neutral-100 dark:bor
 const btnActive = `${btn} border border-blue-500 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-200`;
 const btnAccent = `${btn} border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40`;
 const groupLabel =
-  'mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400';
+  'mb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400';
 
 function SolverPage() {
   const s = useSolver();
