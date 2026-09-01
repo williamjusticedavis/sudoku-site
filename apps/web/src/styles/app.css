@@ -2,8 +2,20 @@
 
 /* Dark mode is toggled by a `.dark` class on <html> (set by the boot script in
    __root.tsx from a saved choice or the OS preference), not by a bare media
-   query — so the header toggle can override the OS setting. */
-@custom-variant dark (&:where(.dark, .dark *));
+   query — so the header toggle can override the OS setting.
+
+   `:is()` rather than `:where()`, deliberately. `:where()` contributes zero
+   specificity, so `dark:bg-black/40` and a plain `bg-neutral-100` on the same
+   element both weigh (0,1,0) and the winner is decided by which one Tailwind
+   happens to emit later. Tailwind emits background utilities in theme-colour
+   order, so that came down to where the two colours sit in the palette:
+   `bg-white` + `dark:bg-neutral-900` worked, while `bg-neutral-100` +
+   `dark:bg-black/40` silently lost — black sorts before neutral-100, so the
+   light fill won in dark mode and rendered near-white text on a near-white
+   card. `:is()` takes the specificity of its argument, making every `dark:`
+   utility (0,2,0), so it beats its light counterpart regardless of palette
+   order. (`dark:hover:` lands at (0,3,0) and still beats a plain `hover:`.) */
+@custom-variant dark (&:is(.dark, .dark *));
 
 :root {
   color-scheme: light;
