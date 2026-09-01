@@ -3,6 +3,7 @@ import {
   Link,
   Outlet,
   createRootRoute,
+  useLocation,
   HeadContent,
   Scripts,
 } from '@tanstack/react-router';
@@ -29,50 +30,91 @@ function RootComponent() {
   );
 }
 
-// One className string per link instead of className + activeProps. TanStack
-// Link appends activeProps.className rather than replacing, so an active tab
-// carried both `dark:hover:bg-neutral-800` (idle) and `dark:hover:bg-neutral-100`
-// (active) — same property, same variant — and Tailwind's stylesheet order
-// picked the dark one, so the current page's tab went near-black on hover.
-// The `data-[status=active]:` compound variants below key off the
-// `data-status="active"` attribute Link sets, and their selectors carry an
-// extra attribute qualifier, so they outrank the plain `:hover` rules by
-// specificity regardless of source order.
-const navLink = [
-  'rounded-md px-2.5 py-1 text-sm font-medium transition-colors',
+// Which tab is highlighted is decided here from the pathname, not from the
+// `data-status="active"` attribute TanStack Link sets. Link's own matching is
+// prefix-based, so `/learn/basics` — the page behind the `?` button — lit up
+// the Learn tab *and* the `?` button at once. The rule we actually want isn't
+// expressible as a prefix: Learn covers `/learn` and every lesson under it
+// except the one the `?` owns.
+const HELP_PATH = '/learn/basics';
+
+function isLearnActive(pathname: string) {
+  return (
+    pathname !== HELP_PATH && (pathname === '/learn' || pathname.startsWith('/learn/'))
+  );
+}
+
+// Idle and active are separate, complete class strings rather than one string
+// with `data-[status=active]:` overrides layered on top. An active tab that
+// still carried the idle `hover:` classes hit the earlier bug where the idle
+// and active rules set the same property in the same variant and stylesheet
+// order picked the wrong one. The active strings simply have no `hover:` rules,
+// so an active tab holds its colours on hover.
+const navBase = 'rounded-md px-2.5 py-1 text-sm font-medium transition-colors';
+const navIdle = [
+  navBase,
   'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
   'dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100',
-  'data-[status=active]:bg-neutral-900 data-[status=active]:font-semibold data-[status=active]:text-white',
-  'data-[status=active]:hover:bg-neutral-900 data-[status=active]:hover:text-white',
-  'dark:data-[status=active]:bg-neutral-100 dark:data-[status=active]:text-neutral-900',
-  'dark:data-[status=active]:hover:bg-neutral-100 dark:data-[status=active]:hover:text-neutral-900',
+].join(' ');
+const navActive = [
+  navBase,
+  'bg-neutral-900 font-semibold text-white',
+  'dark:bg-neutral-100 dark:text-neutral-900',
 ].join(' ');
 
-const helpLink = [
-  'ml-3 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold transition-colors',
+const helpBase =
+  'ml-3 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold transition-colors';
+const helpIdle = [
+  helpBase,
   'border-neutral-300 text-neutral-500 hover:border-neutral-400 hover:text-neutral-900',
   'dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:text-neutral-100',
-  'data-[status=active]:border-neutral-900 data-[status=active]:bg-neutral-900 data-[status=active]:text-white',
-  'data-[status=active]:hover:text-white',
-  'dark:data-[status=active]:border-neutral-100 dark:data-[status=active]:bg-neutral-100 dark:data-[status=active]:text-neutral-900',
-  'dark:data-[status=active]:hover:text-neutral-900',
+].join(' ');
+const helpActive = [
+  helpBase,
+  'border-neutral-900 bg-neutral-900 text-white',
+  'dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900',
 ].join(' ');
 
 function SiteHeader() {
+  const pathname = useLocation({ select: (l) => l.pathname });
+  const solverActive = pathname === '/';
+  const learnActive = isLearnActive(pathname);
+  const helpActiveNow = pathname === HELP_PATH;
+
   return (
     <header className="shrink-0 border-b border-neutral-200 dark:border-neutral-800">
       <nav className="mx-auto flex max-w-[1800px] items-center gap-2 px-4 py-2">
-        <Link to="/" className={navLink} activeOptions={{ exact: true }}>
+        {/* `activeOptions={{ exact: true }}` everywhere is about more than the
+            styling above: Link stamps its own `aria-current="page"` from the
+            same prefix match, and that can't be overridden from outside — with
+            the default (prefix) matching, `/learn/basics` got `aria-current` on
+            both the Learn tab and the `?`. Exact matching narrows Link's own
+            attribute to the one path it really owns; where a tab should read as
+            current for a *child* route (a lesson under Learn) the `aria-current`
+            prop below fills in, since Link leaves it alone when inactive. */}
+        <Link
+          to="/"
+          activeOptions={{ exact: true }}
+          className={solverActive ? navActive : navIdle}
+          aria-current={solverActive ? 'page' : undefined}
+        >
           Solver
         </Link>
-        <Link to="/learn" className={navLink}>
+        <Link
+          to="/learn"
+          activeOptions={{ exact: true }}
+          className={learnActive ? navActive : navIdle}
+          aria-current={learnActive ? 'page' : undefined}
+        >
           Learn
         </Link>
         <Link
           to="/learn/basics"
+          activeOptions={{ exact: true }}
           aria-label="How sudoku works"
           title="How sudoku works"
-          className={helpLink}
+          aria-current={helpActiveNow ? 'page' : undefined}
+          className={helpActiveNow ? helpActive : helpIdle}
         >
           ?
         </Link>
