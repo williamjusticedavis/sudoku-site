@@ -4,10 +4,14 @@ import {
   Outlet,
   createRootRoute,
   useLocation,
+  useNavigate,
   HeadContent,
   Scripts,
 } from '@tanstack/react-router';
 import { ThemeToggle } from '../features/theme/ThemeToggle.js';
+import { TourProvider, useTour } from '../features/tour/TourProvider.js';
+import { homeFor, tourFor } from '../features/tour/steps.js';
+import { TourOverlay } from '../features/tour/TourOverlay.js';
 import appCss from '../styles/app.css?url';
 
 export const Route = createRootRoute({
@@ -32,16 +36,12 @@ function RootComponent() {
 
 // Which tab is highlighted is decided here from the pathname, not from the
 // `data-status="active"` attribute TanStack Link sets. Link's own matching is
-// prefix-based, so `/learn/basics` — the page behind the `?` button — lit up
-// the Learn tab *and* the `?` button at once. The rule we actually want isn't
-// expressible as a prefix: Learn covers `/learn` and every lesson under it
-// except the one the `?` owns.
-const HELP_PATH = '/learn/basics';
-
+// prefix-based, which used to light two tabs at once back when the `?` was a
+// link to `/learn/basics`. The `?` now starts a tour instead of owning a route,
+// so Learn simply covers `/learn` and everything under it — including the
+// basics page, which is reached from a card inside Learn.
 function isLearnActive(pathname: string) {
-  return (
-    pathname !== HELP_PATH && (pathname === '/learn' || pathname.startsWith('/learn/'))
-  );
+  return pathname === '/learn' || pathname.startsWith('/learn/');
 }
 
 // Idle and active are separate, complete class strings rather than one string
@@ -79,7 +79,20 @@ function SiteHeader() {
   const pathname = useLocation({ select: (l) => l.pathname });
   const solverActive = pathname === '/';
   const learnActive = isLearnActive(pathname);
-  const helpActiveNow = pathname === HELP_PATH;
+  const tour = useTour();
+  const navigate = useNavigate();
+
+  // Each tour describes one screen, so the `?` runs whichever belongs to where
+  // you already are — the solver, the Learn index, or the lesson you have open.
+  // Only the Learn index tour names a page it has to be run from, and only the
+  // two prose pages under /learn fall back to it; that move happens before any
+  // card is on screen rather than in the middle of a walk.
+  const startTour = () => {
+    const which = tourFor(pathname);
+    const home = homeFor(which);
+    if (home && pathname !== home) void navigate({ to: home });
+    tour.start(which);
+  };
 
   return (
     <header className="shrink-0 border-b border-neutral-200 dark:border-neutral-800">
@@ -95,6 +108,7 @@ function SiteHeader() {
         <Link
           to="/"
           activeOptions={{ exact: true }}
+          data-tour="nav-solver"
           className={solverActive ? navActive : navIdle}
           aria-current={solverActive ? 'page' : undefined}
         >
@@ -103,21 +117,26 @@ function SiteHeader() {
         <Link
           to="/learn"
           activeOptions={{ exact: true }}
+          data-tour="nav-learn"
           className={learnActive ? navActive : navIdle}
           aria-current={learnActive ? 'page' : undefined}
         >
           Learn
         </Link>
-        <Link
-          to="/learn/basics"
-          activeOptions={{ exact: true }}
-          aria-label="How sudoku works"
-          title="How sudoku works"
-          aria-current={helpActiveNow ? 'page' : undefined}
-          className={helpActiveNow ? helpActive : helpIdle}
+        {/* Not a link any more: this walks the real page rather than
+            describing it on a page of its own. There is one tour per area and
+            this starts the one for wherever you are, so the label is about
+            this page, not the site. */}
+        <button
+          type="button"
+          aria-label="What's on this page"
+          title="What's on this page"
+          aria-pressed={tour.active}
+          onPointerDown={tour.active ? tour.stop : startTour}
+          className={tour.active ? helpActive : helpIdle}
         >
           ?
-        </Link>
+        </button>
         <div className="ml-auto">
           <ThemeToggle />
         </div>
@@ -140,8 +159,13 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <SiteHeader />
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        {/* Above the outlet because the header owns the button that starts a
+            tour while the pages own the things it points at. */}
+        <TourProvider>
+          <SiteHeader />
+          <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+          <TourOverlay />
+        </TourProvider>
         <Scripts />
       </body>
     </html>

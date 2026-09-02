@@ -33,6 +33,7 @@ export function MobileStepper({
   const lastBeat = beats.length === 0 || beat === beats.length - 1;
   return (
     <div
+      data-tour="steps-mobile-bar"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-300 bg-white/95 px-2 backdrop-blur-sm lg:hidden dark:border-neutral-700 dark:bg-neutral-900/95"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >

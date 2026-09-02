@@ -17,6 +17,7 @@ import {
 } from '../features/solver/highlights.js';
 import { SudokuGrid, type Interaction } from '../features/solver/SudokuGrid.js';
 import { MobileStepper } from '../features/solver/MobileStepper.js';
+import { useTour } from '../features/tour/TourProvider.js';
 import { NumberPad } from '../features/solver/NumberPad.js';
 import { Modal } from '../features/solver/Modal.js';
 import { PhotoUpload } from '../features/ocr/PhotoUpload.js';
@@ -51,6 +52,7 @@ const groupLabel =
 
 function SolverPage() {
   const s = useSolver();
+  const tour = useTour();
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
@@ -292,11 +294,12 @@ function SolverPage() {
       <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:flex-row">
         {/* Toolbar: grouped actions, left of the grid on large screens */}
         <aside className="flex flex-col gap-4 lg:w-52 lg:shrink-0">
-          <div>
+          <div data-tour="solve-group">
             <h3 className={groupLabel}>Solve</h3>
             <div className="flex flex-wrap gap-2 lg:grid lg:grid-cols-2">
               <button
                 type="button"
+                data-tour="solve"
                 className={`${btnPrimary} lg:w-full`}
                 onClick={s.solve}
                 disabled={s.clueCount === 0 || s.solving}
@@ -305,6 +308,7 @@ function SolverPage() {
               </button>
               <button
                 type="button"
+                data-tour="hint"
                 className={`${s.pendingStep ? btnActive : btnGhost} lg:w-full`}
                 onClick={s.hint}
                 disabled={s.clueCount === 0 || s.solving}
@@ -330,7 +334,7 @@ function SolverPage() {
             </div>
           </div>
 
-          <div>
+          <div data-tour="notes">
             <h3 className={groupLabel}>Marks</h3>
             <div className="flex flex-wrap gap-2 lg:grid lg:grid-cols-2">
               <button
@@ -370,6 +374,7 @@ function SolverPage() {
               <button
                 type="button"
                 className={`${btnGhost} lg:w-full`}
+                data-tour="check"
                 onClick={s.check}
                 disabled={s.solving}
               >
@@ -378,12 +383,14 @@ function SolverPage() {
               <button
                 type="button"
                 className={`${btnGhost} lg:w-full`}
+                data-tour="paste"
                 onClick={() => setPasteOpen((o) => !o)}
                 disabled={s.solving}
               >
                 Paste
               </button>
               <PhotoUpload
+                data-tour="upload"
                 className={`${btnAccent} lg:w-full`}
                 onGrid={(grid) => {
                   s.load(grid);
@@ -395,6 +402,7 @@ function SolverPage() {
               <button
                 type="button"
                 className={`${btnGhost} lg:w-full`}
+                data-tour="example"
                 onClick={() => s.load(EXAMPLE)}
                 disabled={s.solving}
               >
@@ -415,25 +423,31 @@ function SolverPage() {
         {/* Left: grid + status */}
         <section className="flex min-w-0 flex-col items-start gap-4 lg:min-h-0 lg:flex-1">
           <div className="flex w-full items-center justify-end gap-1">
-            <ToolbarIconButton
-              label="Undo"
-              shortcut="Ctrl/Cmd+Z"
-              onClick={s.undo}
-              disabled={!s.canUndo || s.solving}
-            >
-              <UndoIcon />
-            </ToolbarIconButton>
-            <ToolbarIconButton
-              label="Redo"
-              shortcut="Ctrl/Cmd+Shift+Z"
-              onClick={s.redo}
-              disabled={!s.canRedo || s.solving}
-            >
-              <RedoIcon />
-            </ToolbarIconButton>
+            {/* The tour rings this inner wrapper, not the row: the row is
+                full-width with the buttons pushed to its right end, so a ring
+                around it would enclose mostly empty space. */}
+            <div data-tour="history" className="flex items-center gap-1">
+              <ToolbarIconButton
+                label="Undo"
+                shortcut="Ctrl/Cmd+Z"
+                onClick={s.undo}
+                disabled={!s.canUndo || s.solving}
+              >
+                <UndoIcon />
+              </ToolbarIconButton>
+              <ToolbarIconButton
+                label="Redo"
+                shortcut="Ctrl/Cmd+Shift+Z"
+                onClick={s.redo}
+                disabled={!s.canRedo || s.solving}
+              >
+                <RedoIcon />
+              </ToolbarIconButton>
+            </div>
           </div>
           <div
             ref={gridWrapperRef}
+            data-tour="grid"
             className="relative flex w-full items-center justify-center lg:min-h-0 lg:flex-1 lg:[container-type:size]"
           >
             <SudokuGrid
@@ -551,18 +565,41 @@ function SolverPage() {
 
         {/* Right: solve process */}
         {panelOpen && (
-          <section className="flex min-h-0 w-full min-w-0 max-w-md flex-col">
+          <section
+            data-tour="steps-panel"
+            className="flex min-h-0 w-full min-w-0 max-w-md flex-col"
+          >
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold">
                 {s.history.length > 0 || s.pendingStep ? 'Steps' : 'Mistake check'}
               </h2>
               <div className="flex items-center gap-1">
+                {/* This panel gets its own tour rather than a few stops inside
+                    the solver's: it only exists after a solve, and reading a
+                    move, scrubbing back through the list and taking the grid
+                    over are a topic of their own. Only offered once there is
+                    actually a solve to talk about. */}
+                {s.history.length > 0 && (
+                  <button
+                    type="button"
+                    aria-label="What's in this panel"
+                    title="What's in this panel"
+                    aria-pressed={tour.active}
+                    onPointerDown={() =>
+                      tour.active ? tour.stop() : tour.start('steps')
+                    }
+                    className="rounded-full border border-neutral-300 px-1.5 text-xs font-semibold text-neutral-500 hover:border-neutral-400 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:text-neutral-100"
+                  >
+                    ?
+                  </button>
+                )}
                 {s.history.length > 0 && (
                   // Keeps every digit on screen and drops the solve — the
                   // board becomes yours to finish. Distinct from hiding,
                   // which keeps the step list intact behind the ✕.
                   <button
                     type="button"
+                    data-tour="steps-takeover"
                     onClick={s.takeOver}
                     title="Keep these digits and carry on solving by hand — the step list goes away"
                     className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
@@ -572,6 +609,7 @@ function SolverPage() {
                 )}
                 <button
                   type="button"
+                  data-tour="steps-close"
                   aria-label={s.history.length > 0 ? 'Hide steps' : 'Close mistake check'}
                   title={
                     s.history.length > 0
@@ -589,7 +627,7 @@ function SolverPage() {
             {readStep && (
               // Hidden on mobile — the docked MobileStepper below the grid
               // shows the same thing without needing to scroll down to it.
-              <div className="mb-4 hidden lg:block">
+              <div data-tour="steps-narration" className="mb-4 hidden lg:block">
                 <StepNarration
                   step={readStep}
                   beats={s.beats}
@@ -623,6 +661,7 @@ function SolverPage() {
             {s.history.length > 0 && (
               <button
                 type="button"
+                data-tour="steps-mobile-toggle"
                 onClick={() => setMobileListOpen((o) => !o)}
                 className="mb-2 flex w-full items-center justify-between rounded px-1 py-1 text-sm text-neutral-500 hover:bg-neutral-100 lg:hidden dark:text-neutral-400 dark:hover:bg-neutral-800"
               >
@@ -634,6 +673,7 @@ function SolverPage() {
             {s.history.length > 0 && (
               <ol
                 ref={listRef}
+                data-tour="steps-list"
                 className={[
                   mobileListOpen ? '' : 'hidden',
                   'max-h-[60vh] min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 lg:block lg:max-h-none',

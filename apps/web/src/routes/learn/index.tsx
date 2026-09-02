@@ -139,7 +139,7 @@ function LearnOverview() {
         </p>
       </header>
 
-      <Link to="/learn/basics" className={`mb-8 ${infoCard}`}>
+      <Link to="/learn/basics" data-tour="learn-basics" className={`mb-8 ${infoCard}`}>
         <div className="font-semibold text-neutral-900 dark:text-neutral-100">
           New to sudoku? Start here
         </div>
@@ -157,7 +157,13 @@ function LearnOverview() {
           const done = list.filter(() => progressFor() >= 100).length;
           return (
             <section key={tier}>
-              <div className="mb-2 flex items-baseline justify-between gap-4">
+              <div
+                // The site tour rings the first tier's heading. The tier list
+                // as a whole is several screens tall, so ringing that just dims
+                // nothing and scrolls the reader into the middle of it.
+                data-tour={tier === TIER_ORDER[0] ? 'learn-tiers' : undefined}
+                className="mb-2 flex items-baseline justify-between gap-4"
+              >
                 <h2 className={`text-lg font-semibold ${accent.heading}`}>
                   {TIER_LABEL[tier]}
                 </h2>
@@ -171,7 +177,11 @@ function LearnOverview() {
                   so a learner meeting "strong link" for the first time should
                   already have passed this card. */}
               {tier === 'intermediate' && (
-                <Link to="/learn/strong-weak-links" className={`mb-3 ${infoCard}`}>
+                <Link
+                  to="/learn/strong-weak-links"
+                  data-tour="learn-links"
+                  className={`mb-3 ${infoCard}`}
+                >
                   <div className="font-semibold text-neutral-900 dark:text-neutral-100">
                     Strong Links &amp; Weak Links
                   </div>

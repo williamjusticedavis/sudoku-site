@@ -6,6 +6,9 @@ interface PhotoUploadProps {
   onError(message: string): void;
   className?: string;
   disabled?: boolean;
+  /** Spotlight anchor for the site tour (see features/tour/steps.ts). The
+   * button is rendered here, so the attribute has to be handed down. */
+  'data-tour'?: string;
 }
 
 // Falls back to the repo's documented local-dev default (see .env.example)
@@ -44,7 +47,13 @@ function describeOcrError(code: string | undefined): string {
 }
 
 /** Pick a photo -> crop to the grid -> upload for OCR -> hand back a grid string. */
-export function PhotoUpload({ onGrid, onError, className, disabled }: PhotoUploadProps) {
+export function PhotoUpload({
+  onGrid,
+  onError,
+  className,
+  disabled,
+  'data-tour': dataTour,
+}: PhotoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>('idle');
   const [pickedFile, setPickedFile] = useState<File | null>(null);
@@ -116,6 +125,7 @@ export function PhotoUpload({ onGrid, onError, className, disabled }: PhotoUploa
       />
       <button
         type="button"
+        data-tour={dataTour}
         className={className}
         onClick={() => inputRef.current?.click()}
         disabled={disabled || stage === 'uploading'}

@@ -261,7 +261,7 @@ function LessonPage() {
       />
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_28rem]">
-        <div className="flex justify-center">
+        <div data-tour="lesson-board" className="flex justify-center">
           <LessonBoard
             grid={boardGrid}
             step={revealed ? step : null}
@@ -273,7 +273,10 @@ function LessonPage() {
         </div>
 
         <div className="flex flex-col gap-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div
+            data-tour="lesson-puzzles"
+            className="flex flex-wrap items-center justify-between gap-3"
+          >
             <PuzzleTabs
               count={tactic.puzzles.length}
               active={puzzleIndex}
@@ -286,7 +289,10 @@ function LessonPage() {
             {puzzle.isTeachingExample ? ' · teaching example' : ' · practice'}
           </p>
 
-          <div className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+          <div
+            data-tour="lesson-explain"
+            className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900"
+          >
             <p className="text-base leading-relaxed text-neutral-800 dark:text-neutral-200">
               {!revealed
                 ? `Try to spot the ${tactic.name.toLowerCase()} yourself. Ask for the hint when you want the walkthrough.`
@@ -301,95 +307,103 @@ function LessonPage() {
             )}
           </div>
 
-          {!revealed ? (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className={btnPrimary}
-                onClick={() => setRevealed(true)}
-              >
-                Show hint
-              </button>
-            </div>
-          ) : done ? (
-            <div className="flex flex-col gap-3">
-              <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-5 text-base text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
-                Lesson complete.{' '}
-                {tactic.next ? (
-                  <>
-                    Next up:{' '}
-                    <Link
-                      to="/learn/$slug"
-                      params={{ slug: tactic.next.slug }}
-                      className="font-medium underline"
-                    >
-                      {tactic.next.name}
-                    </Link>
-                    .
-                  </>
-                ) : (
-                  <>
-                    That&rsquo;s the last tactic in the curriculum —{' '}
-                    <Link to="/learn" className="font-medium underline">
-                      back to Learn
-                    </Link>
-                    .
-                  </>
-                )}
+          {/* One wrapper for all three states of these controls — explore,
+              stepping, complete — so the tour can ring "the controls" without
+              caring which one is showing. */}
+          <div data-tour="lesson-controls">
+            {!revealed ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  onClick={() => setRevealed(true)}
+                >
+                  Show hint
+                </button>
               </div>
+            ) : done ? (
+              <div className="flex flex-col gap-3">
+                <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-5 text-base text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  Lesson complete.{' '}
+                  {tactic.next ? (
+                    <>
+                      Next up:{' '}
+                      <Link
+                        to="/learn/$slug"
+                        params={{ slug: tactic.next.slug }}
+                        className="font-medium underline"
+                      >
+                        {tactic.next.name}
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    <>
+                      That&rsquo;s the last tactic in the curriculum —{' '}
+                      <Link to="/learn" className="font-medium underline">
+                        back to Learn
+                      </Link>
+                      .
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={btnGhost}
+                    onClick={() => setApplied(false)}
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            ) : (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   className={btnGhost}
-                  onClick={() => setApplied(false)}
+                  disabled={stepIndex === 0 && !applied}
+                  onClick={() => {
+                    if (applied) setApplied(false);
+                    else setStepIndex((i) => Math.max(0, i - 1));
+                  }}
                 >
                   Back
                 </button>
+
+                {applied ? (
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    onClick={() => goToPuzzle(puzzleIndex + 1)}
+                  >
+                    {isLastPuzzle ? 'Finish' : 'Next puzzle'}
+                  </button>
+                ) : isFinalStep ? (
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    onClick={() => setApplied(true)}
+                  >
+                    Apply
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    onClick={() => setStepIndex((i) => i + 1)}
+                  >
+                    Next
+                  </button>
+                )}
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className={btnGhost}
-                disabled={stepIndex === 0 && !applied}
-                onClick={() => {
-                  if (applied) setApplied(false);
-                  else setStepIndex((i) => Math.max(0, i - 1));
-                }}
-              >
-                Back
-              </button>
+            )}
+          </div>
 
-              {applied ? (
-                <button
-                  type="button"
-                  className={btnPrimary}
-                  onClick={() => goToPuzzle(puzzleIndex + 1)}
-                >
-                  {isLastPuzzle ? 'Finish' : 'Next puzzle'}
-                </button>
-              ) : isFinalStep ? (
-                <button
-                  type="button"
-                  className={btnPrimary}
-                  onClick={() => setApplied(true)}
-                >
-                  Apply
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className={btnPrimary}
-                  onClick={() => setStepIndex((i) => i + 1)}
-                >
-                  Next
-                </button>
-              )}
-            </div>
-          )}
-
-          <div className="mt-1 rounded-lg border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-800 dark:bg-neutral-900/60">
+          <div
+            data-tour="lesson-about"
+            className="mt-1 rounded-lg border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-800 dark:bg-neutral-900/60"
+          >
             <h2 className="mb-2 text-xs font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400">
               About {tactic.name}
             </h2>
@@ -405,6 +419,7 @@ function LessonPage() {
           {/* Move between lessons without a round trip through the tier
               overview. Curriculum order, so these cross tier boundaries. */}
           <nav
+            data-tour="lesson-nearby"
             aria-label="Nearby lessons"
             className="flex items-stretch justify-between gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-800"
           >
