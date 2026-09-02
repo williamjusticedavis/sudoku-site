@@ -28,7 +28,7 @@ export const Route = createFileRoute('/learn/')({
  * the family-group marker a few lines down, so it wasn't distinguishing much.)
  *
  * Deliberately neutral rather than tier-tinted, including the one that lives
- * under Advanced: the point being made is that it's a different *kind* of
+ * under Intermediate: the point being made is that it's a different *kind* of
  * thing, not a different difficulty, and a tier colour would say the opposite.
  *
  * "Filled" means opposite directions per theme, and that's on purpose. Light
@@ -166,14 +166,19 @@ function LearnOverview() {
                 </span>
               </div>
               <div className={`mb-4 h-0.5 w-full rounded-full ${accent.rule}`} />
-              {tier === 'advanced' && (
+              {/* Sits above Intermediate, not Advanced: Skyscraper is the first
+                  lesson that needs this vocabulary and it's an Intermediate one,
+                  so a learner meeting "strong link" for the first time should
+                  already have passed this card. */}
+              {tier === 'intermediate' && (
                 <Link to="/learn/strong-weak-links" className={`mb-3 ${infoCard}`}>
                   <div className="font-semibold text-neutral-900 dark:text-neutral-100">
                     Strong Links &amp; Weak Links
                   </div>
                   <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                    Not a tactic — the vocabulary every lesson below leans on. Read this
-                    first if "strong link" and "weak link" are new.
+                    Not a tactic — the vocabulary Skyscraper and the chain-shaped lessons
+                    after it lean on. Read this first if "strong link" and "weak link" are
+                    new.
                   </p>
                 </Link>
               )}

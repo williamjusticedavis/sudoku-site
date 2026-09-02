@@ -122,7 +122,7 @@ function StrongWeakLinksPage() {
       <BackButton fallbackTo="/learn" />
       <div className="mb-1 flex items-center gap-2 text-xs font-medium tracking-wide text-neutral-500 uppercase dark:text-neutral-400">
         <Link to="/learn" className="hover:text-neutral-800 dark:hover:text-neutral-200">
-          Advanced
+          Intermediate
         </Link>
         <span aria-hidden>·</span>
         <span>Concept</span>
@@ -131,9 +131,10 @@ function StrongWeakLinksPage() {
         Strong Links &amp; Weak Links
       </h1>
       <p className="mb-8 text-base text-neutral-600 dark:text-neutral-400">
-        Not a tactic with its own puzzles to solve — a piece of vocabulary. Every lesson
-        from here on leans on it, so it's worth the slightly longer read now rather than
-        re-explaining it every time it comes up.
+        Not a tactic with its own puzzles to solve — a piece of vocabulary. Skyscraper is
+        the first lesson that needs it, and every chain-shaped tactic after that leans on
+        it too, so it's worth the slightly longer read now rather than re-explaining it
+        every time it comes up.
       </p>
 
       <div className="flex flex-col gap-10">
