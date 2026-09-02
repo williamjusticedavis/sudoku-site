@@ -66,6 +66,10 @@ export interface TacticDetail extends TacticSummary {
    * null at the two ends of the curriculum. */
   prev: TacticLink | null;
   next: TacticLink | null;
+  /** Every tactic, in curriculum order — the same list `prev`/`next` are picked
+   * from. Carried through so the lesson's prose can resolve its `[[slug]]`
+   * cross-references against what the database actually holds. */
+  index: TacticLink[];
 }
 
 export const TIER_ORDER: Tier[] = ['beginner', 'intermediate', 'advanced', 'master'];

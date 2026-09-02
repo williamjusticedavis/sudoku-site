@@ -41,7 +41,9 @@ export const getTactic = createServerFn({ method: 'GET' })
       orderBy: (p, { asc, desc }) => [desc(p.isTeachingExample), asc(p.id)],
     });
 
-    // Neighbours in curriculum order. `tierEnum` is declared beginner→master,
+    // Neighbours in curriculum order, and the full list behind them (the
+    // lesson's prose resolves its cross-references against it).
+    // `tierEnum` is declared beginner→master,
     // so Postgres orders the enum that way and (tier, orderInTier) is exactly
     // the curriculum sequence — which makes `next` cross tier boundaries
     // correctly. 28 rows of two columns; cheaper than a window function for
@@ -55,6 +57,7 @@ export const getTactic = createServerFn({ method: 'GET' })
     return {
       prev: at > 0 ? (ordered[at - 1] ?? null) : null,
       next: at >= 0 ? (ordered[at + 1] ?? null) : null,
+      index: ordered,
       slug: tactic.slug,
       name: tactic.name,
       tier: tactic.tier,

@@ -3,6 +3,7 @@ import { createFileRoute, Link, notFound } from '@tanstack/react-router';
 import { applyStep, cellName, serializeGridWithCandidates } from '@sudoku/engine';
 import { getTactic } from '../../features/learn/tactics.js';
 import { familyFor } from '../../features/learn/families.js';
+import { CrossRefText } from '../../features/learn/CrossRefText.js';
 import { LessonBoard } from '../../features/learn/LessonBoard.js';
 import { TACTIC_OVERVIEW } from '../../features/learn/overviews.js';
 import { parseLessonGrid, toEngineStep } from '../../features/learn/stepAdapter.js';
@@ -393,7 +394,11 @@ function LessonPage() {
               About {tactic.name}
             </h2>
             <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-              {TACTIC_OVERVIEW[tactic.slug] ?? tactic.description}
+              <CrossRefText
+                text={TACTIC_OVERVIEW[tactic.slug] ?? tactic.description}
+                index={tactic.index}
+                currentSlug={tactic.slug}
+              />
             </p>
           </div>
 
