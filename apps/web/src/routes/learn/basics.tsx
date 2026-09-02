@@ -160,9 +160,13 @@ function BasicsPage() {
             eliminate just by looking one row at a time.
           </p>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            The solver always recomputes candidates from the placed digits — it never
-            trusts hand-entered pencil marks as correct, so you can't strand yourself with
-            a bad mark.
+            The solver never takes a pencil mark on your word — it works out the
+            candidates itself from the placed digits. If you do mark up a grid, it checks
+            every mark you made against both its own candidates and the puzzle's real
+            solution: pass cleanly and the eliminations you already found are folded into
+            the solve, so you don't get walked back through your own work. One bad mark
+            voids the set, your notes reset, and it solves from the digits instead — so
+            you can't strand yourself with a wrong mark either way.
           </p>
         </Section>
 
