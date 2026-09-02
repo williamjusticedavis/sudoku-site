@@ -102,8 +102,8 @@ function BasicsPage() {
       </h1>
       <p className="mb-8 text-base text-neutral-600 dark:text-neutral-400">
         The whole game in one page — the single rule, what "solved" means, and the two
-        words (<em>candidate</em>, <em>unit</em>) the lessons below assume you already
-        have. No techniques here yet; those start with the Beginner tier.
+        words (<em>candidate</em>, <em>unit</em>) the lessons assume you already have. No
+        techniques here; those start with the Beginner tier.
       </p>
 
       <div className="flex flex-col gap-10">
@@ -151,7 +151,9 @@ function BasicsPage() {
           <p>
             A <strong>candidate</strong> is a digit that could still legally go in a given
             empty cell — it doesn't yet repeat in that cell's row, column, or box. On
-            paper people pencil these in small; on this site they're shown for you.
+            paper people pencil these in small; here you can fill them in yourself, or
+            have the grid fill them for you with Auto notes — and every solving step shows
+            the candidates it left behind.
           </p>
           <p>
             Solving is mostly the hunt for a cell where only one candidate is left, or a
