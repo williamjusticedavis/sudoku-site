@@ -26,6 +26,16 @@ const FIND_TIMEOUT_MS = 1500;
  * so waiting the full budget only stalls the walk. */
 const OPTIONAL_TIMEOUT_MS = 300;
 
+/** How long after arriving at a stop the overlay keeps correcting the scroll.
+ * Long enough to cover a toolbar collapse and the reflow behind it, short
+ * enough to be over before anyone has decided to scroll for themselves. */
+const SETTLE_MS = 500;
+
+/** How long after a tour button is pressed its trailing click is eaten. Long
+ * enough to cover the gap between pointerdown and the click on a touchscreen,
+ * short enough not to swallow a deliberate second tap. */
+const SWALLOW_MS = 350;
+
 function findTarget(step: TourStep): HTMLElement | null {
   if (!step.target) return null;
   const sel = step.selector ?? `[data-tour="${step.target}"]`;
@@ -40,6 +50,95 @@ function findTarget(step: TourStep): HTMLElement | null {
   // position-fixed mobile bar even when it is perfectly visible.
   if (!el || el.getClientRects().length === 0) return null;
   return el;
+}
+
+/** The visible band. On a phone `innerWidth`/`innerHeight` lag a toolbar
+ * transition, so ask `visualViewport` where it exists — the card is the one
+ * `position: fixed` part of this overlay and has to fit what's actually on
+ * screen. */
+function viewport() {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+  return {
+    width: vv?.width ?? window.innerWidth,
+    height: vv?.height ?? window.innerHeight,
+  };
+}
+
+/** The target's box in *document* coordinates, plus the page metrics the
+ * overlay is drawn against. */
+interface Metrics {
+  rect: Rect | null;
+  scrollX: number;
+  scrollY: number;
+  docW: number;
+  docH: number;
+  vw: number;
+  vh: number;
+}
+
+/**
+ * Document coordinates, not viewport ones, and that is the whole point.
+ *
+ * The spotlight has to sit on a control to the pixel, and a phone gives you two
+ * viewports to get that wrong with: `getBoundingClientRect()` answers against
+ * the layout viewport, while Safari re-anchors `position: fixed` to the visual
+ * one — and the gap between the two opens and closes as the browser toolbars
+ * slide in and out, including in response to the tour's own scrolling. Two
+ * attempts to convert between them were two different guesses about behaviour
+ * that varies by browser and by moment, and both left rings sitting a toolbar's
+ * height off their target.
+ *
+ * So the ring and its dimming panels don't live in a viewport at all. They are
+ * `position: absolute` at `rect.top + scrollY` — ordinary page content, pinned
+ * to the document beside the thing they're ringing. They move with it because
+ * they are in the same coordinate space as it, and no conversion is involved at
+ * any point. The card stays `fixed`, because its job is to stay in view rather
+ * than to line up with anything.
+ */
+function measurePage(el: HTMLElement | null): Metrics {
+  const de = document.documentElement;
+  const vp = viewport();
+  const r = el?.getBoundingClientRect();
+  return {
+    rect: r
+      ? {
+          top: r.top + window.scrollY,
+          left: r.left + window.scrollX,
+          width: r.width,
+          height: r.height,
+        }
+      : null,
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+    docW: Math.max(de.scrollWidth, vp.width),
+    docH: Math.max(de.scrollHeight, vp.height),
+    vw: vp.width,
+    vh: vp.height,
+  };
+}
+
+function sameMetrics(a: Metrics | null, b: Metrics): boolean {
+  if (!a) return false;
+  const ra = a.rect;
+  const rb = b.rect;
+  if (!ra !== !rb) return false;
+  if (
+    ra &&
+    rb &&
+    (ra.top !== rb.top ||
+      ra.left !== rb.left ||
+      ra.width !== rb.width ||
+      ra.height !== rb.height)
+  )
+    return false;
+  return (
+    a.scrollX === b.scrollX &&
+    a.scrollY === b.scrollY &&
+    a.docW === b.docW &&
+    a.docH === b.docH &&
+    a.vw === b.vw &&
+    a.vh === b.vh
+  );
 }
 
 /**
@@ -57,21 +156,37 @@ function findTarget(step: TourStep): HTMLElement | null {
 export function TourOverlay() {
   const { tour, index, active, stop, go, goTo, skip } = useTour();
 
-  const [rect, setRect] = useState<Rect | null>(null);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [ready, setReady] = useState(false);
   const steps = tour ? stepsFor(tour) : [];
   const step = index === null ? null : steps[index];
   /** Which way the reader is walking, so a skipped step is stepped *over*
    * rather than bouncing them back the way they came. */
   const dir = useRef(1);
+  /** Until when the tracking loop may re-scroll a target that has drifted out
+   * of view. Scrolling is not a one-shot on a phone: collapsing or expanding
+   * the browser toolbars after the fact reflows the visible band and can leave
+   * a target that was centred a moment ago off the top of it. Re-asserting for
+   * a short window catches that; bounding the window keeps it from fighting a
+   * reader who scrolls the page themselves. */
+  const settleUntil = useRef(0);
+  /** The card, so the scroll lock below can let a long one scroll while the
+   * page behind it stays put. */
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  /** Until when a click is eaten before it can reach the page. See `press`. */
+  const swallowUntil = useRef(0);
+  /** Whether the shield that absorbs that click is up. Also see `press`. */
+  const [shielded, setShielded] = useState(false);
+  const shieldTimer = useRef<number | null>(null);
 
   // Find the step's target once we're on its page, scroll it into view, and
   // decide what to do when it never turns up.
   useEffect(() => {
     if (!step) return;
     setReady(false);
-    setRect(null);
+    setMetrics(null);
     if (!step.target) {
+      setMetrics(measurePage(null));
       setReady(true);
       return;
     }
@@ -88,8 +203,8 @@ export function TourOverlay() {
         // hops to the real one, which reads as the new text arriving and *then*
         // the card moving.
         el.scrollIntoView({ block: 'center', inline: 'nearest' });
-        const r = el.getBoundingClientRect();
-        setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+        settleUntil.current = performance.now() + SETTLE_MS;
+        setMetrics(measurePage(el));
         setReady(true);
         return;
       }
@@ -97,7 +212,10 @@ export function TourOverlay() {
         // Optional steps describe controls that only exist in some states —
         // an empty grid has no step list. Step over them.
         if (step.optional && index !== null) skip(index, dir.current || 1);
-        else setReady(true); // centred card; the copy still stands alone
+        else {
+          setMetrics(measurePage(null)); // centred card; the copy stands alone
+          setReady(true);
+        }
         return;
       }
       raf = requestAnimationFrame(look);
@@ -106,24 +224,33 @@ export function TourOverlay() {
     return () => cancelAnimationFrame(raf);
   }, [step, index, skip]);
 
-  // Track the target's box for as long as it's spotlit.
+  // Re-read the page every frame for as long as the tour is up. One
+  // `getBoundingClientRect` per frame, and it means a layout shift, a font
+  // arriving, an orientation change — anything at all — can't leave the ring
+  // behind the element it was drawn around.
   useEffect(() => {
-    if (!active || !ready || !step?.target) return;
+    if (!active || !ready) return;
     let raf = 0;
     const measure = () => {
-      const el = findTarget(step);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        setRect((prev) =>
-          prev &&
-          prev.top === r.top &&
-          prev.left === r.left &&
-          prev.width === r.width &&
-          prev.height === r.height
-            ? prev
-            : { top: r.top, left: r.left, width: r.width, height: r.height },
-        );
+      const el = step?.target ? findTarget(step) : null;
+      // The target blinked out of the DOM mid-step: hold the last known box
+      // rather than tearing the ring down and rebuilding it.
+      if (step?.target && !el) {
+        raf = requestAnimationFrame(measure);
+        return;
       }
+      if (el && performance.now() < settleUntil.current) {
+        // Arriving at a stop is not a one-shot scroll on a phone: a toolbar
+        // sliding away afterwards reflows the visible band and can leave a
+        // target that was centred a moment ago off the edge of it. Re-assert
+        // briefly, then stop, so this never fights a reader.
+        const r = el.getBoundingClientRect();
+        const vh = viewport().height;
+        if (r.top < EDGE || r.bottom > vh - EDGE)
+          el.scrollIntoView({ block: 'center', inline: 'nearest' });
+      }
+      const next = measurePage(el);
+      setMetrics((prev) => (sameMetrics(prev, next) ? prev : next));
       raf = requestAnimationFrame(measure);
     };
     raf = requestAnimationFrame(measure);
@@ -157,6 +284,109 @@ export function TourOverlay() {
     [go, goTo, index, steps],
   );
 
+  /**
+   * Wrap a tour button's action, and absorb the click that follows it.
+   *
+   * The buttons act on `pointerdown`, the way every other control on this site
+   * does, so a tap lands on the press. But the browser still delivers a `click`
+   * when the finger lifts, and it delivers it to whatever is under the finger
+   * *then* — by which point this button has either moved (Next re-lays the card
+   * for the new step) or gone (Done ends the tour). The click went to the page
+   * behind it: finishing the Learn tour opened whichever lesson happened to sit
+   * under the Done button.
+   *
+   * Two guards, because one wasn't enough. Cancelling the click from a
+   * capture-phase listener on `window` looked sufficient and isn't — the app
+   * hydrates the whole document, so the router's delegated handler navigated
+   * anyway, `stopPropagation` notwithstanding. What does hold is a transparent
+   * shield over the page for the same moment: the stray click's *target* is
+   * then the shield rather than a link, so there is no handler to run and
+   * nothing to order correctly. The card sits above the shield, so pressing
+   * Next twice quickly still works.
+   */
+  const press = useCallback(
+    (action: () => void) => () => {
+      swallowUntil.current = performance.now() + SWALLOW_MS;
+      setShielded(true);
+      if (shieldTimer.current !== null) window.clearTimeout(shieldTimer.current);
+      shieldTimer.current = window.setTimeout(() => {
+        shieldTimer.current = null;
+        setShielded(false);
+      }, SWALLOW_MS);
+      action();
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      if (shieldTimer.current !== null) window.clearTimeout(shieldTimer.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const swallow = (e: MouseEvent) => {
+      if (performance.now() > swallowUntil.current) return;
+      swallowUntil.current = 0; // one click, not everything for the next moment
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('click', swallow, true);
+    return () => window.removeEventListener('click', swallow, true);
+  }, []);
+
+  // Hold the page still for the length of the tour. This is a modal dialog and
+  // ought to lock the background either way, but on a phone it is also what
+  // keeps the ring accurate.
+  //
+  // The overlay is positioned against the visual viewport while the elements it
+  // rings are measured against the layout viewport, and the gap between the two
+  // is `visualViewport.offsetTop` — which moves when a mobile browser collapses
+  // or expands its toolbars. A *user* scroll is the only thing that does that:
+  // the tour's own `scrollIntoView` never triggers the toolbar animation. So
+  // taking the gesture away leaves the offset fixed for the whole walk, and a
+  // step can't be left ringing where its target used to be.
+  //
+  // Gestures, not scrolling: `overflow: hidden` on the document would stop the
+  // tour reaching its own targets, and the iOS workaround for it (pinning the
+  // body with `position: fixed`) relays the page out from under the ring. Non-
+  // passive `touchmove`/`wheel` handlers block the input instead and leave
+  // `scrollIntoView` working normally. The card is exempt: its own content
+  // scrolls when the copy is taller than the space it was given.
+  useEffect(() => {
+    if (!active) return;
+    const block = (e: Event) => {
+      const t = e.target;
+      if (t instanceof Node && cardRef.current?.contains(t)) return;
+      e.preventDefault();
+    };
+    // The scroll keys, for the same reason. The arrows are already spoken for
+    // by the walk itself, below.
+    const blockKeys = (e: KeyboardEvent) => {
+      if (
+        e.key === ' ' ||
+        e.key === 'PageUp' ||
+        e.key === 'PageDown' ||
+        e.key === 'Home' ||
+        e.key === 'End'
+      ) {
+        const t = e.target;
+        if (t instanceof Node && cardRef.current?.contains(t)) return;
+        e.preventDefault();
+      }
+    };
+    const opts = { passive: false } as const;
+    window.addEventListener('touchmove', block, opts);
+    window.addEventListener('wheel', block, opts);
+    window.addEventListener('keydown', blockKeys, true);
+    return () => {
+      window.removeEventListener('touchmove', block);
+      window.removeEventListener('wheel', block);
+      window.removeEventListener('keydown', blockKeys, true);
+    };
+  }, [active]);
+
   // Captured, so the tour's keys never reach the solver's own handlers
   // underneath (Escape puts the step panel away; that would fire too).
   //
@@ -184,11 +414,20 @@ export function TourOverlay() {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [active, stop, move]);
 
-  if (!active || !step || typeof document === 'undefined') return null;
+  if (!active || !step || typeof document === 'undefined') {
+    // The tour is over, but the click from the press that ended it has not
+    // arrived yet. Keep the shield up alone until it has.
+    return shielded && typeof document !== 'undefined'
+      ? createPortal(
+          <div aria-hidden="true" className="fixed inset-0 z-50" />,
+          document.body,
+        )
+      : null;
+  }
   // A step that points at something waits for its rect as well as its target:
   // position and content have to land in the same paint, or the card is seen
   // moving after the fact.
-  if (!ready || (step.target && !rect)) {
+  if (!ready || !metrics || (step.target && !metrics.rect)) {
     // Resolving: keep the screen dimmed so the tour doesn't blink out and back
     // between stops. No ring and no card until we know where they go.
     return createPortal(
@@ -197,10 +436,10 @@ export function TourOverlay() {
     );
   }
 
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  const { rect, scrollX, scrollY, docW, docH, vw, vh } = metrics;
   const narrow = vw < 640;
 
+  // The cut-out, in document coordinates — where the ring and the panels go.
   const hole = rect
     ? {
         top: rect.top - PAD,
@@ -208,6 +447,12 @@ export function TourOverlay() {
         width: rect.width + PAD * 2,
         height: rect.height + PAD * 2,
       }
+    : null;
+
+  // The same cut-out in viewport coordinates. Only the card needs this: it is
+  // `fixed`, so where it goes is a question about what's on screen.
+  const holeV = hole
+    ? { ...hole, top: hole.top - scrollY, left: hole.left - scrollX }
     : null;
 
   // Where the card goes, in order of preference: below the target, above it,
@@ -234,38 +479,38 @@ export function TourOverlay() {
     maxHeight: number;
   } | null = null;
 
-  if (hole && !narrow) {
-    const roomBelow = vh - (hole.top + hole.height + GAP) - EDGE;
-    const roomAbove = hole.top - GAP - EDGE;
-    const roomRight = vw - (hole.left + hole.width + GAP) - EDGE;
-    const roomLeft = hole.left - GAP - EDGE;
+  if (holeV && !narrow) {
+    const roomBelow = vh - (holeV.top + holeV.height + GAP) - EDGE;
+    const roomAbove = holeV.top - GAP - EDGE;
+    const roomRight = vw - (holeV.left + holeV.width + GAP) - EDGE;
+    const roomLeft = holeV.left - GAP - EDGE;
     const centredLeft = Math.min(
-      Math.max(EDGE, hole.left + hole.width / 2 - CARD_W / 2),
+      Math.max(EDGE, holeV.left + holeV.width / 2 - CARD_W / 2),
       vw - CARD_W - EDGE,
     );
 
     if (roomBelow >= MIN_CARD) {
       card = {
-        top: hole.top + hole.height + GAP,
+        top: holeV.top + holeV.height + GAP,
         left: centredLeft,
         maxHeight: roomBelow,
       };
     } else if (roomAbove >= MIN_CARD) {
       card = {
-        bottom: vh - hole.top + GAP,
+        bottom: vh - holeV.top + GAP,
         left: centredLeft,
         maxHeight: roomAbove,
       };
     } else if (roomLeft >= CARD_W) {
       card = {
         top: EDGE,
-        left: hole.left - GAP - CARD_W,
+        left: holeV.left - GAP - CARD_W,
         maxHeight: vh - EDGE * 2,
       };
     } else if (roomRight >= CARD_W) {
       card = {
         top: EDGE,
-        left: hole.left + hole.width + GAP,
+        left: holeV.left + holeV.width + GAP,
         maxHeight: vh - EDGE * 2,
       };
     }
@@ -279,24 +524,32 @@ export function TourOverlay() {
   const visible = steps.filter((s) => !(s.optional && !findTarget(s)));
   const total = visible.length;
   const position = step ? visible.indexOf(step) + 1 : 0;
-  const panel = 'fixed bg-neutral-950/60 dark:bg-neutral-950/75';
+  const panel = 'absolute bg-neutral-950/60 dark:bg-neutral-950/75';
 
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Site tour"
-      className="fixed inset-0 z-50"
+      // Absolute and document-sized, so everything inside is positioned in
+      // document coordinates. See `measurePage` for why that matters.
+      className="absolute top-0 left-0 z-50"
+      style={{ width: docW, height: docH }}
     >
       {hole ? (
         <>
           <div
             className={panel}
-            style={{ top: 0, left: 0, right: 0, height: Math.max(0, hole.top) }}
+            style={{ top: 0, left: 0, width: docW, height: Math.max(0, hole.top) }}
           />
           <div
             className={panel}
-            style={{ top: hole.top + hole.height, left: 0, right: 0, bottom: 0 }}
+            style={{
+              top: hole.top + hole.height,
+              left: 0,
+              width: docW,
+              height: Math.max(0, docH - (hole.top + hole.height)),
+            }}
           />
           <div
             className={panel}
@@ -312,12 +565,12 @@ export function TourOverlay() {
             style={{
               top: hole.top,
               left: hole.left + hole.width,
-              right: 0,
+              width: Math.max(0, docW - (hole.left + hole.width)),
               height: hole.height,
             }}
           />
           <div
-            className="pointer-events-none fixed rounded-lg ring-2 ring-blue-500 dark:ring-blue-400"
+            className="pointer-events-none absolute rounded-lg ring-2 ring-blue-500 dark:ring-blue-400"
             style={{
               top: hole.top,
               left: hole.left,
@@ -327,10 +580,13 @@ export function TourOverlay() {
           />
         </>
       ) : (
-        <div className={`${panel} inset-0`} />
+        <div className="fixed inset-0 bg-neutral-950/60 dark:bg-neutral-950/75" />
       )}
 
+      {shielded && <div aria-hidden="true" className="fixed inset-0" />}
+
       <div
+        ref={cardRef}
         className={
           card
             ? 'fixed w-[340px] rounded-lg border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-900'
@@ -339,10 +595,14 @@ export function TourOverlay() {
                 // walkthrough on a phone *is* a bar across the bottom, so a
                 // card that always docked there would sit on top of the thing
                 // it is pointing at.
-                `fixed right-3 left-3 rounded-lg border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-900 ${
+                // `max-h`/`overflow-y-auto`: the page behind is held still for
+                // the length of the tour, so a card with more copy than screen
+                // has to carry its own scroll or the buttons under it can't be
+                // reached at all.
+                `fixed right-3 left-3 max-h-[70vh] overflow-y-auto rounded-lg border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-900 ${
                   hole && hole.top > vh / 2 ? 'top-3' : 'bottom-3'
                 }`
-              : 'fixed top-1/2 left-1/2 w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-700 dark:bg-neutral-900'
+              : 'fixed top-1/2 left-1/2 max-h-[calc(100vh-2rem)] w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-700 dark:bg-neutral-900'
         }
         style={card ? { ...card, overflowY: 'auto' } : undefined}
       >
@@ -362,7 +622,7 @@ export function TourOverlay() {
             type="button"
             // pointerdown, not click: taps on a phone want to land on the
             // press, the way every other control on this site does.
-            onPointerDown={stop}
+            onPointerDown={press(stop)}
             className="rounded-md px-2 py-1 text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
           >
             Close
@@ -371,7 +631,7 @@ export function TourOverlay() {
             {(index ?? 0) > 0 && (
               <button
                 type="button"
-                onPointerDown={() => move(-1)}
+                onPointerDown={press(() => move(-1))}
                 className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
                 Back
@@ -379,7 +639,7 @@ export function TourOverlay() {
             )}
             <button
               type="button"
-              onPointerDown={() => move(1)}
+              onPointerDown={press(() => move(1))}
               className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
             >
               {position === total ? 'Done' : 'Next'}

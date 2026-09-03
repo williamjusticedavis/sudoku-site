@@ -69,11 +69,11 @@ const helpIdle = [
   'border-neutral-300 text-neutral-500 hover:border-neutral-400 hover:text-neutral-900',
   'dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:text-neutral-100',
 ].join(' ');
-const helpActive = [
-  helpBase,
-  'border-neutral-900 bg-neutral-900 text-white',
-  'dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900',
-].join(' ');
+// No "active" variant on purpose. The `?` toggles a tour, so it was given a
+// filled/selected look while one ran — but the tour dims the whole page behind
+// its spotlight, and a button that goes solid white (dark mode) for the length
+// of a twelve-step walk reads as a control stuck down rather than as state.
+// `aria-pressed` still carries the toggle for anyone who needs it announced.
 
 function SiteHeader() {
   const pathname = useLocation({ select: (l) => l.pathname });
@@ -133,7 +133,7 @@ function SiteHeader() {
           title="What's on this page"
           aria-pressed={tour.active}
           onPointerDown={tour.active ? tour.stop : startTour}
-          className={tour.active ? helpActive : helpIdle}
+          className={helpIdle}
         >
           ?
         </button>
