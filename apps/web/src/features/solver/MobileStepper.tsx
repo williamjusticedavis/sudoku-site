@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { techniqueName, type ExplainBeat, type Step } from '@sudoku/engine';
 
 interface MobileStepperProps {
@@ -31,6 +32,21 @@ export function MobileStepper({
   onNext,
 }: MobileStepperProps) {
   const lastBeat = beats.length === 0 || beat === beats.length - 1;
+
+  // This bar is `fixed` to the bottom of the viewport, so it covers whatever
+  // the document ends with — which, since the site gained a footer, means the
+  // footer is behind it and unreachable once a solve is on screen. `<main>`'s
+  // own `pb-28` only clears the bar for content *inside* main. Flagging it on
+  // <body> lets the footer reserve its own room (see app.css); an attribute
+  // rather than a prop because the footer lives in the root layout, several
+  // levels away from anything the solver page renders.
+  useEffect(() => {
+    document.body.dataset.dockedBar = 'true';
+    return () => {
+      delete document.body.dataset.dockedBar;
+    };
+  }, []);
+
   return (
     <div
       data-tour="steps-mobile-bar"

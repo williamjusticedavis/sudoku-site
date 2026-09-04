@@ -17,7 +17,13 @@ const link = [
 
 export function SiteFooter() {
   return (
-    <footer className="shrink-0 border-t border-neutral-200 dark:border-neutral-800">
+    // Painted rather than transparent, and given a stacking context. The
+    // footer sits at the end of the document with page content directly above
+    // it, so a transparent strip shows whatever it happens to overlap the
+    // moment anything is mispositioned — which is exactly how the overflow bug
+    // above presented. Colours match the body ground, so it reads as page
+    // rather than as a panel; the top border does the separating.
+    <footer className="relative z-10 shrink-0 border-t border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950">
       <nav className="mx-auto flex max-w-[1800px] items-center gap-1 px-4 py-2 text-sm">
         <span className="text-neutral-400 dark:text-neutral-500">© Gridwise</span>
         <span className="ml-auto flex items-center gap-1">

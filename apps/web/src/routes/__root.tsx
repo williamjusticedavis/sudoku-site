@@ -189,6 +189,34 @@ function SiteHeader() {
 // choice, else falls back to the OS preference.
 const themeBootScript = `(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.classList.toggle('dark',t==='dark');}catch(e){}})();`;
 
+/** The region between the header and the footer.
+ *
+ * `min-h-0` here is what lets the solver be a viewport-locked app shell: with
+ * it the wrapper has `flex-basis: 0` and permission to shrink below its own
+ * content, so it sits at exactly the height left over and the board sizes
+ * itself to fit. Every other page wants the opposite — grow with the content
+ * and let the page scroll.
+ *
+ * It used to be applied unconditionally, which was invisible until the site
+ * gained a footer: on a long page the wrapper stayed at the viewport remainder
+ * while its content overflowed it, so the footer painted across the middle of
+ * `/learn` with lesson cards showing through and the rest of the page running
+ * on underneath. Dropping it outright is not the answer either — that breaks
+ * the solver as soon as a solve puts the step list on screen (measured: the
+ * board grows past the viewport and the whole page starts scrolling).
+ *
+ * So it is scoped to the one page that wants it, at the one width where that
+ * page is locked. Below `lg` the solver scrolls like anything else — which is
+ * also what keeps its footer clear of the docked step bar.
+ */
+function MainRegion({ children }: Readonly<{ children: ReactNode }>) {
+  const pathname = useLocation({ select: (l) => l.pathname });
+  const locked = pathname === '/';
+  return (
+    <div className={`flex flex-1 flex-col${locked ? ' lg:min-h-0' : ''}`}>{children}</div>
+  );
+}
+
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
     // The boot script sets `class="dark"` on <html> before React hydrates, so
@@ -203,7 +231,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
             tour while the pages own the things it points at. */}
         <TourProvider>
           <SiteHeader />
-          <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+          <MainRegion>{children}</MainRegion>
           <SiteFooter />
           <TourOverlay />
         </TourProvider>

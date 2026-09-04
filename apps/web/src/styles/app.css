@@ -57,3 +57,15 @@ body {
 .dark body {
   @apply bg-neutral-950 text-neutral-100;
 }
+
+/* The mobile solver docks a fixed step bar at the bottom of the viewport once a
+   solve is running (`MobileStepper`, `fixed bottom-0`). Anything at the end of
+   the document sits underneath it, so the footer would be unreachable at full
+   scroll. The bar sets `data-docked-bar` on <body> while mounted and the footer
+   keeps its own height clear. Scoped below `lg`, which is where the bar itself
+   stops rendering (`lg:hidden`) — above that there is nothing to clear. */
+@media (width < 64rem) {
+  body[data-docked-bar] footer {
+    padding-bottom: 7rem;
+  }
+}
