@@ -9,19 +9,34 @@ import {
   Scripts,
 } from '@tanstack/react-router';
 import { ThemeToggle } from '../features/theme/ThemeToggle.js';
+import { Logo } from '../features/shell/Logo.js';
+import { SiteFooter } from '../features/shell/SiteFooter.js';
 import { TourProvider, useTour } from '../features/tour/TourProvider.js';
 import { homeFor, tourFor } from '../features/tour/steps.js';
 import { TourOverlay } from '../features/tour/TourOverlay.js';
 import appCss from '../styles/app.css?url';
+
+const DESCRIPTION =
+  'Solve any sudoku and see why each move works — every step a real, named technique, never a guess. Plus lessons on all 28 of them, from Naked Single to ALS-XZ.';
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Sudoku Solver' },
+      { title: 'Gridwise — Sudoku Solver & Lessons' },
+      { name: 'description', content: DESCRIPTION },
+      { property: 'og:title', content: 'Gridwise' },
+      { property: 'og:description', content: DESCRIPTION },
+      { property: 'og:type', content: 'website' },
+      // `summary`, not `summary_large_image`: there is no share image yet, and
+      // the large-image card renders as an empty slab without one.
+      { name: 'twitter:card', content: 'summary' },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+    ],
   }),
   component: RootComponent,
 });
@@ -62,6 +77,15 @@ const navActive = [
   'dark:bg-neutral-100 dark:text-neutral-900',
 ].join(' ');
 
+// The brand is a link to `/` but deliberately not a nav tab: no idle/active
+// pair, no `data-tour`. It sits beside a Solver tab that also points at `/`,
+// and giving it an active state would light two things up on the home page.
+const brand = [
+  'mr-1 flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors',
+  'text-neutral-900 hover:bg-neutral-100',
+  'dark:text-neutral-100 dark:hover:bg-neutral-800',
+].join(' ');
+
 const helpBase =
   'ml-3 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold transition-colors';
 const helpIdle = [
@@ -81,6 +105,9 @@ function SiteHeader() {
   const learnActive = isLearnActive(pathname);
   const tour = useTour();
   const navigate = useNavigate();
+  // `null` on the pages that have no tour (About, Feedback) — the `?` is not
+  // rendered at all there rather than starting a walk of a page it isn't about.
+  const which = tourFor(pathname);
 
   // Each tour describes one screen, so the `?` runs whichever belongs to where
   // you already are — the solver, the Learn index, or the lesson you have open.
@@ -88,7 +115,7 @@ function SiteHeader() {
   // two prose pages under /learn fall back to it; that move happens before any
   // card is on screen rather than in the middle of a walk.
   const startTour = () => {
-    const which = tourFor(pathname);
+    if (!which) return;
     const home = homeFor(which);
     if (home && pathname !== home) void navigate({ to: home });
     tour.start(which);
@@ -97,6 +124,17 @@ function SiteHeader() {
   return (
     <header className="shrink-0 border-b border-neutral-200 dark:border-neutral-800">
       <nav className="mx-auto flex max-w-[1800px] items-center gap-2 px-4 py-2">
+        {/* The wordmark drops below `sm` — the mark alone still identifies the
+            site, and the nav already carries two tabs, the `?` and the theme
+            toggle at the widths where space runs out. */}
+        <Link to="/" className={brand} aria-label="Gridwise, home">
+          <Logo className="h-5 w-5" />
+          <span className="hidden font-semibold tracking-tight sm:inline">Gridwise</span>
+        </Link>
+        <span
+          aria-hidden="true"
+          className="mr-1 h-5 w-px bg-neutral-200 dark:bg-neutral-800"
+        />
         {/* `activeOptions={{ exact: true }}` everywhere is about more than the
             styling above: Link stamps its own `aria-current="page"` from the
             same prefix match, and that can't be overridden from outside — with
@@ -127,16 +165,18 @@ function SiteHeader() {
             describing it on a page of its own. There is one tour per area and
             this starts the one for wherever you are, so the label is about
             this page, not the site. */}
-        <button
-          type="button"
-          aria-label="What's on this page"
-          title="What's on this page"
-          aria-pressed={tour.active}
-          onPointerDown={tour.active ? tour.stop : startTour}
-          className={helpIdle}
-        >
-          ?
-        </button>
+        {which && (
+          <button
+            type="button"
+            aria-label="What's on this page"
+            title="What's on this page"
+            aria-pressed={tour.active}
+            onPointerDown={tour.active ? tour.stop : startTour}
+            className={helpIdle}
+          >
+            ?
+          </button>
+        )}
         <div className="ml-auto">
           <ThemeToggle />
         </div>
@@ -164,6 +204,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <TourProvider>
           <SiteHeader />
           <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+          <SiteFooter />
           <TourOverlay />
         </TourProvider>
         <Scripts />

@@ -2,6 +2,12 @@
 
 ## Project overview
 
+The site is called **Gridwise** (named 2026-09-04). The name and mark live in
+the header — a 3×3 grid with the centre cell solved, as an inline SVG component
+(`apps/web/src/features/shell/Logo.tsx`) with a matching `apps/web/public/favicon.svg`.
+The two are the same geometry written twice, since a favicon has no page context
+to inherit `currentColor` from; keep them in step.
+
 A website with two areas: a **solver** (paste/upload/type a sudoku, get it solved
 or hinted step-by-step) and a **Learn** section (tiered lessons teaching sudoku
 solving techniques, inspired by — but not copying — the Oakever iPhone app's
@@ -47,7 +53,7 @@ Phase 1 goals:
 
   ## Data model (Phase 2 — Postgres via Drizzle)
 
-Exactly 5 tables. Do not add more without checking in first — in particular,
+Exactly 6 tables. Do not add more without checking in first — in particular,
 do NOT persist solves (see below).
 
 **users**
@@ -74,6 +80,24 @@ do NOT persist solves (see below).
 
 - user_id (FK), tactic_id (FK) — favoriting a tactic/lesson (e.g. "W-Wing"),
   NOT a puzzle. There is no puzzle-favoriting feature.
+
+**feedback** (added 2026-09-04 — the 6th table, sign-off given)
+
+- id, name, message, created_at
+
+Backs the footer's `/feedback` page. Deliberately **name + message only**:
+
+- **No email column**, and no contact field of any kind. `users` has no email
+  either, so the site holds no address for anybody by design. This means
+  feedback is one-way and cannot be replied to, which was the accepted
+  trade rather than an oversight — the page says so to the sender.
+- **No `user_id` FK.** Anyone can send feedback without an account, and there
+  are no auth routes yet, so nothing would populate it.
+- Read it with `pnpm db:studio`. There is no admin page; that needs auth.
+- Abuse handling is a honeypot field plus length caps (name 80, message 4000),
+  enforced in `apps/web/src/features/feedback/submitFeedback.ts` on both sides.
+  A tripped honeypot is told it succeeded and nothing is written. There is
+  **no per-IP rate limit** — a known, accepted gap, not a solved problem.
 
 ### Explicitly excluded — do not build these
 

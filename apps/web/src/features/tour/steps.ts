@@ -361,7 +361,17 @@ export const STEPS_TOUR: readonly TourStep[] = [
  * the Learn index tour instead. */
 const LEARN_ARTICLES = new Set(['/learn/basics', '/learn/strong-weak-links']);
 
-export function tourFor(pathname: string): TourId {
+/** Pages with nothing worth spotlighting: prose and a form, no controls whose
+ * purpose a label can't carry. They answer `null` rather than falling through
+ * to the solver tour, and the header drops its `?` entirely on them. */
+const UNTOURED = new Set(['/about', '/feedback']);
+
+/** `null` where a page has no tour — the caller is expected to hide whatever
+ * would have started one. This is not a default-to-`'solver'` function: it used
+ * to be, and any path it didn't recognise got the solver's twelve steps pointed
+ * at buttons that were not on the page. */
+export function tourFor(pathname: string): TourId | null {
+  if (UNTOURED.has(pathname)) return null;
   if (pathname === '/learn' || LEARN_ARTICLES.has(pathname)) return 'learn';
   if (pathname.startsWith('/learn/')) return 'lesson';
   return 'solver';

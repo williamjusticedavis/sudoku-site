@@ -1,5 +1,6 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import {
+  feedback,
   sessions,
   tacticPuzzles,
   tactics,
@@ -26,3 +27,5 @@ export type TacticPuzzle = InferSelectModel<typeof tacticPuzzles>;
 export type NewTacticPuzzle = InferInsertModel<typeof tacticPuzzles>;
 export type UserTacticProgress = InferSelectModel<typeof userTacticProgress>;
 export type UserFavoriteTactic = InferSelectModel<typeof userFavoriteTactics>;
+export type Feedback = InferSelectModel<typeof feedback>;
+export type NewFeedback = InferInsertModel<typeof feedback>;
