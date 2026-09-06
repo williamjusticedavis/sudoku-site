@@ -35,6 +35,13 @@ const DARK_LUMINANCE = 128;
 // Each OCR call forks a `tesseract` process; unbounded concurrency risks the
 // container, fully serial is slow for a ~30-70 non-blank-cell grid.
 const MAX_CONCURRENT_OCR = 6;
+// Ceiling on the decoded size of an uploaded image. sharp's own default is
+// 268 megapixels, which an 8MB upload can reach easily — a highly compressed
+// image of a solid colour decodes to hundreds of megabytes of raster before
+// anything here gets to resize it. Everything is squashed to 900x900 anyway,
+// so 40MP is far more headroom than a photo of a sudoku needs (a 48MP phone
+// camera exceeds it; a crop of a grid never will).
+const MAX_INPUT_PIXELS = 40_000_000;
 // Whole-image sanity band: a blank/white page or a solid-dark photo is almost
 // certainly not a sudoku grid — reject before spending 81 OCR calls on it.
 const WHOLE_IMAGE_MIN_INK = 0.01;
@@ -248,7 +255,7 @@ async function extractCells(
 export async function extractGrid(imageBuffer: Buffer): Promise<PipelineResult> {
   let normalized: Buffer;
   try {
-    normalized = await sharp(imageBuffer)
+    normalized = await sharp(imageBuffer, { limitInputPixels: MAX_INPUT_PIXELS })
       .rotate() // auto-orient via EXIF
       .grayscale()
       .normalize() // contrast stretch

@@ -32,8 +32,20 @@ export async function ocrCell(cellPngBuffer: Buffer): Promise<CellOcrResult> {
   return parseBestDigit(tsv);
 }
 
+/** A single cell should take tesseract tens of milliseconds. Anything past this
+ * is a process that will not finish on its own, and without a bound it holds a
+ * request slot open forever. */
+const TESSERACT_TIMEOUT_MS = 10_000;
+/** Per-stream cap on what is collected from the child. The TSV for one
+ * character is a few hundred bytes; this only exists so a process that decides
+ * to emit endlessly cannot exhaust memory. */
+const MAX_OUTPUT_BYTES = 1024 * 1024;
+
 function runTesseract(imageBuffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
+    // Arguments are a fixed array and the image goes in over stdin, so nothing
+    // the caller supplies is ever parsed as an argument or a path. Keep it that
+    // way: no shell, and never pass a filename here.
     const child = spawn('tesseract', [
       'stdin',
       'stdout',
@@ -44,21 +56,55 @@ function runTesseract(imageBuffer: Buffer): Promise<string> {
       'tsv', // only output mode that reports per-character confidence
     ]);
 
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      finish(() =>
+        reject(new Error(`tesseract timed out after ${TESSERACT_TIMEOUT_MS}ms`)),
+      );
+    }, TESSERACT_TIMEOUT_MS);
+
+    const collect = (cap: number) => {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      return {
+        chunks,
+        push(chunk: Buffer) {
+          if (size >= cap) return;
+          size += chunk.length;
+          chunks.push(chunk);
+        },
+      };
+    };
+    const stdout = collect(MAX_OUTPUT_BYTES);
+    const stderr = collect(MAX_OUTPUT_BYTES);
+
     child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));
     child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
-    child.on('error', reject);
+    child.on('error', (err) => finish(() => reject(err)));
+    // A child that exits before the image is fully written makes the write end
+    // EPIPE. That arrives on stdin, not on the child, and an unhandled 'error'
+    // event on a stream takes the process down.
+    child.stdin.on('error', (err) => finish(() => reject(err)));
     child.on('close', (code) => {
-      if (code !== 0) {
-        reject(
-          new Error(
-            `tesseract exited ${code}: ${Buffer.concat(stderr).toString('utf8')}`,
-          ),
-        );
-        return;
-      }
-      resolve(Buffer.concat(stdout).toString('utf8'));
+      finish(() => {
+        if (code !== 0) {
+          reject(
+            new Error(
+              `tesseract exited ${code}: ${Buffer.concat(stderr.chunks).toString('utf8').slice(0, 500)}`,
+            ),
+          );
+          return;
+        }
+        resolve(Buffer.concat(stdout.chunks).toString('utf8'));
+      });
     });
     child.stdin.end(imageBuffer);
   });
