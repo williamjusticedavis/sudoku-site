@@ -459,7 +459,7 @@ function SolverPage() {
           <div
             ref={gridWrapperRef}
             data-tour="grid"
-            className="relative flex w-full items-center justify-center lg:min-h-0 lg:flex-1 lg:[container-type:size]"
+            className="relative flex w-full items-center justify-center lg:min-h-0 lg:flex-1 lg:@container-size"
           >
             <SudokuGrid
               placed={s.display.placed}

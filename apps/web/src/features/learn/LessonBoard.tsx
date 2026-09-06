@@ -170,7 +170,7 @@ export function LessonBoard({
     <div
       role="grid"
       aria-label="Lesson sudoku grid"
-      className="text-scale-fixed relative grid aspect-square w-full max-w-[680px] grid-cols-9 grid-rows-[repeat(9,minmax(0,1fr))] rounded-sm border-2 border-neutral-700 [container-type:inline-size] dark:border-neutral-300"
+      className="text-scale-fixed relative grid aspect-square w-full max-w-170 grid-cols-9 grid-rows-9 rounded-sm border-2 border-neutral-700 @container dark:border-neutral-300"
     >
       {Array.from({ length: 81 }, (_, i) => {
         const col = i % 9;

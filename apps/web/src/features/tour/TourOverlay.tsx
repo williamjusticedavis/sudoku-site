@@ -589,7 +589,7 @@ export function TourOverlay() {
         ref={cardRef}
         className={
           card
-            ? 'fixed w-[340px] rounded-lg border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-900'
+            ? 'fixed w-85 rounded-lg border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-900'
             : narrow
               ? // Docked to whichever edge the target isn't near. The step
                 // walkthrough on a phone *is* a bar across the bottom, so a
