@@ -21,7 +21,8 @@ function gridWith(cands: Record<CellIndex, Digit[]>): Grid {
   return g;
 }
 
-const elimKeys = (s: Step): string[] => s.eliminations.map((e) => `${e.cell}:${e.digit}`).sort();
+const elimKeys = (s: Step): string[] =>
+  s.eliminations.map((e) => `${e.cell}:${e.digit}`).sort();
 const firesCount = (file: string, tech: TechniqueId): number =>
   runFixture(file).outcomes.filter((o) => o.techniques.includes(tech)).length;
 

@@ -121,7 +121,9 @@ export const alsXz: Technique = (grid: Grid): Step | null => {
             ],
             description: `ALS-XZ: ALS {${a.cells.map(cellName).join(',')}} and {${b.cells
               .map(cellName)
-              .join(',')}} share restricted common ${x}; ${z} is locked to them → eliminate ${z} from ${targets
+              .join(
+                ',',
+              )}} share restricted common ${x}; ${z} is locked to them → eliminate ${z} from ${targets
               .map(cellName)
               .join(', ')}.`,
           });

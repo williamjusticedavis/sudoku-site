@@ -35,11 +35,11 @@ vendored value — tying the two independent solvers together.
 
 ## Files
 
-| File | Puzzles | Purpose |
-|------|--------:|---------|
-| `17clue_100subset.csv` | 100 | broad correctness / solve-rate tracking |
-| `pointing-pairs.csv`, `boxline-reduction.csv` | 3, 2 | locked candidates |
-| `xwing.csv`, `swordfish.csv`, `jellyfish.csv`, `finnedswordfish.csv` | 4, 8, 2, 1 | fish family |
-| `ywing.csv`, `xyzwing.csv`, `wxyzwing.csv` | 4, 6, 1 | wings |
-| `bug.csv` | 7 | BUG+1 |
-| `diabolical1.csv`, `diabolical2.csv` | 1, 2 | hard, mixed techniques |
+| File                                                                 |    Puzzles | Purpose                                 |
+| -------------------------------------------------------------------- | ---------: | --------------------------------------- |
+| `17clue_100subset.csv`                                               |        100 | broad correctness / solve-rate tracking |
+| `pointing-pairs.csv`, `boxline-reduction.csv`                        |       3, 2 | locked candidates                       |
+| `xwing.csv`, `swordfish.csv`, `jellyfish.csv`, `finnedswordfish.csv` | 4, 8, 2, 1 | fish family                             |
+| `ywing.csv`, `xyzwing.csv`, `wxyzwing.csv`                           |    4, 6, 1 | wings                                   |
+| `bug.csv`                                                            |          7 | BUG+1                                   |
+| `diabolical1.csv`, `diabolical2.csv`                                 |       1, 2 | hard, mixed techniques                  |

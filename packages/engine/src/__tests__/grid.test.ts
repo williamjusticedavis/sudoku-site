@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  boxOf,
-  candList,
-  colOf,
-  rowOf,
-  type CellIndex,
-} from '../grid.js';
+import { boxOf, candList, colOf, rowOf, type CellIndex } from '../grid.js';
 import { PEERS, UNITS } from '../units.js';
 import { computeCandidates, parseGrid, serializeGrid } from '../candidates.js';
 import { countSolutions, findConflicts, hasUniqueSolution } from '../validate.js';

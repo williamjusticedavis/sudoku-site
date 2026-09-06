@@ -23,7 +23,13 @@ import {
   type Grid,
 } from '../grid.js';
 import { UNITS, type Unit } from '../units.js';
-import { makeStep, type Elimination, type Step, type Technique, type TechniqueId } from '../step.js';
+import {
+  makeStep,
+  type Elimination,
+  type Step,
+  type Technique,
+  type TechniqueId,
+} from '../step.js';
 import { combinations } from './util.js';
 
 const SIZE_WORD: Record<number, string> = { 2: 'pair', 3: 'triple', 4: 'quad' };
@@ -71,7 +77,11 @@ function findNaked(grid: Grid, k: number, technique: TechniqueId): Step | null {
         eliminations,
         highlights: [
           { role: 'base', cells: picked, digits },
-          { role: 'elimination', cells: [...new Set(eliminations.map((e) => e.cell))], digits },
+          {
+            role: 'elimination',
+            cells: [...new Set(eliminations.map((e) => e.cell))],
+            digits,
+          },
         ],
         description: `Naked ${SIZE_WORD[k]} (${digitsLabel(union)}) in ${unitLabel(unit)} at ${picked
           .map(cellName)
@@ -116,7 +126,8 @@ function findHidden(grid: Grid, k: number, technique: TechniqueId): Step | null 
       const eliminations: Elimination[] = [];
       for (const c of cellSet) {
         for (const e of candList(grid.candidates[c]!)) {
-          if ((digitMask & (1 << (e - 1))) === 0) eliminations.push({ cell: c, digit: e });
+          if ((digitMask & (1 << (e - 1))) === 0)
+            eliminations.push({ cell: c, digit: e });
         }
       }
       if (eliminations.length === 0) continue;

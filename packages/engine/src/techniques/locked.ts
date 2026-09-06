@@ -27,7 +27,9 @@ import { makeStep, type Elimination, type Step, type Technique } from '../step.j
 
 /** Empty cells of `unit` that still admit digit `d`. */
 function positionsOf(grid: Grid, unit: Unit, d: Digit): CellIndex[] {
-  return unit.cells.filter((c) => grid.placed[c] === 0 && hasCand(grid.candidates[c]!, d));
+  return unit.cells.filter(
+    (c) => grid.placed[c] === 0 && hasCand(grid.candidates[c]!, d),
+  );
 }
 
 /** Digits not yet placed anywhere in `unit`. */
@@ -56,10 +58,12 @@ export const pointing: Technique = (grid: Grid): Step | null => {
 
       const sameRow = allSame(cells, rowOf);
       const line: Unit | null =
-        sameRow !== null ? ROWS[sameRow]! : (() => {
-          const sameCol = allSame(cells, colOf);
-          return sameCol !== null ? COLS[sameCol]! : null;
-        })();
+        sameRow !== null
+          ? ROWS[sameRow]!
+          : (() => {
+              const sameCol = allSame(cells, colOf);
+              return sameCol !== null ? COLS[sameCol]! : null;
+            })();
       if (line === null) continue;
 
       const eliminations: Elimination[] = [];
@@ -99,7 +103,8 @@ export const claiming: Technique = (grid: Grid): Step | null => {
 
       const eliminations: Elimination[] = [];
       for (const c of BOXES[box]!.cells) {
-        if (line.kind === 'row' ? rowOf(c) === line.index : colOf(c) === line.index) continue;
+        if (line.kind === 'row' ? rowOf(c) === line.index : colOf(c) === line.index)
+          continue;
         if (grid.placed[c] === 0 && hasCand(grid.candidates[c]!, d)) {
           eliminations.push({ cell: c, digit: d });
         }

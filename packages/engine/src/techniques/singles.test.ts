@@ -68,9 +68,9 @@ describe('solve loop with singles', () => {
     expect(result.steps).toHaveLength(9);
     // The cascade must include genuine singles beyond last-free-cell.
     const techniques = new Set(result.steps.map((s) => s.technique));
-    expect([...techniques].some((t) => t === 'naked-single' || t === 'hidden-single')).toBe(
-      true,
-    );
+    expect(
+      [...techniques].some((t) => t === 'naked-single' || t === 'hidden-single'),
+    ).toBe(true);
   });
 
   it('replaying the steps reproduces the solved grid', () => {

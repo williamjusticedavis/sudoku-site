@@ -14,7 +14,8 @@ function gridWith(cands: Record<CellIndex, Digit[]>): Grid {
   return g;
 }
 
-const elimKeys = (s: Step): string[] => s.eliminations.map((e) => `${e.cell}:${e.digit}`).sort();
+const elimKeys = (s: Step): string[] =>
+  s.eliminations.map((e) => `${e.cell}:${e.digit}`).sort();
 
 describe('alsXz (white-box)', () => {
   it('eliminates the locked Z given a restricted common candidate', () => {

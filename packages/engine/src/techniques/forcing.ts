@@ -29,7 +29,13 @@ import {
   type Grid,
 } from '../grid.js';
 import { UNITS } from '../units.js';
-import { applyStep, makeStep, type Elimination, type Step, type Technique } from '../step.js';
+import {
+  applyStep,
+  makeStep,
+  type Elimination,
+  type Step,
+  type Technique,
+} from '../step.js';
 
 /** A contradiction: an empty cell with no candidates, or a digit with nowhere
  * left to go in some unit. */

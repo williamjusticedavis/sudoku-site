@@ -14,7 +14,8 @@ function gridWith(cands: Record<CellIndex, Digit[]>): Grid {
   return g;
 }
 
-const elimKeys = (s: Step): string[] => s.eliminations.map((e) => `${e.cell}:${e.digit}`).sort();
+const elimKeys = (s: Step): string[] =>
+  s.eliminations.map((e) => `${e.cell}:${e.digit}`).sort();
 
 describe('xyChain (white-box)', () => {
   it('resolves a length-3 chain (the XY-Wing case) and eliminates Z', () => {

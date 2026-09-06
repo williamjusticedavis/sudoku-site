@@ -18,13 +18,7 @@
  * Elimination-only; returns the first component that yields an elimination.
  */
 
-import {
-  cellName,
-  hasCand,
-  type CellIndex,
-  type Digit,
-  type Grid,
-} from '../grid.js';
+import { cellName, hasCand, type CellIndex, type Digit, type Grid } from '../grid.js';
 import { UNITS, sees } from '../units.js';
 import { makeStep, type Elimination, type Step, type Technique } from '../step.js';
 

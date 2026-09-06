@@ -53,14 +53,20 @@ function strongLinks(grid: Grid, d: Digit): StrongLink[] {
   return out;
 }
 
-function classify(l1: StrongLink, l2: StrongLink, e1: CellIndex, e2: CellIndex): ChainKind {
+function classify(
+  l1: StrongLink,
+  l2: StrongLink,
+  e1: CellIndex,
+  e2: CellIndex,
+): ChainKind {
   const bothLines = l1.kind !== 'box' && l2.kind !== 'box';
   if (bothLines && l1.kind === l2.kind) {
     const aligned = l1.kind === 'row' ? colOf(e1) === colOf(e2) : rowOf(e1) === rowOf(e2);
     if (aligned) return 'skyscraper';
   }
   const kinds = new Set([l1.kind, l2.kind]);
-  if (kinds.has('row') && kinds.has('col') && boxOf(e1) === boxOf(e2)) return '2-string-kite';
+  if (kinds.has('row') && kinds.has('col') && boxOf(e1) === boxOf(e2))
+    return '2-string-kite';
   return 'turbot-fish';
 }
 
@@ -94,7 +100,8 @@ function findChain(grid: Grid, accept: ChainKind): Step | null {
           if (classify(l1, l2, e1, e2) !== accept) continue;
 
           const targets = commonPeers([o1, o2]).filter(
-            (c) => !chain.has(c) && grid.placed[c] === 0 && hasCand(grid.candidates[c]!, d),
+            (c) =>
+              !chain.has(c) && grid.placed[c] === 0 && hasCand(grid.candidates[c]!, d),
           );
           if (targets.length === 0) continue;
 

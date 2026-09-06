@@ -27,7 +27,10 @@ describe('forcingChain (isolated, vs oracle)', () => {
       }
       return g.placed.some((d) => d === 0); // pattern techniques left it unsolved
     });
-    expect(holdout, 'expected at least one pattern-stuck puzzle in the broad set').toBeTruthy();
+    expect(
+      holdout,
+      'expected at least one pattern-stuck puzzle in the broad set',
+    ).toBeTruthy();
 
     const { puzzle, solution } = holdout!;
     const stuck = patternStuck(puzzle);
@@ -53,7 +56,9 @@ describe('forcing chain completes every fixture (no logical gap)', () => {
     const usedForcing = summary.outcomes.filter((o) =>
       o.techniques.includes('forcing-chain'),
     ).length;
-    console.log(`[forcing] ${BROAD}: solved ${summary.solved}/${summary.total}, forcing used on ${usedForcing}`);
+    console.log(
+      `[forcing] ${BROAD}: solved ${summary.solved}/${summary.total}, forcing used on ${usedForcing}`,
+    );
     expect(usedForcing).toBeGreaterThan(0); // the holdouts genuinely needed it
   });
 });

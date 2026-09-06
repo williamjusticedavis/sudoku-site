@@ -36,7 +36,12 @@ import { hasUniqueSolution } from '../validate.js';
 import { makeStep, type Elimination, type Step, type Technique } from '../step.js';
 
 /** Count empty cells still holding `d` within one unit (by unit membership). */
-function countInUnitOf(grid: Grid, cell: CellIndex, kind: 'row' | 'col' | 'box', d: Digit): number {
+function countInUnitOf(
+  grid: Grid,
+  cell: CellIndex,
+  kind: 'row' | 'col' | 'box',
+  d: Digit,
+): number {
   const unit = UNITS_OF[cell]!.find((u) => u.kind === kind)!;
   let n = 0;
   for (const c of unit.cells) {

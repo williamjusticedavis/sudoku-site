@@ -19,7 +19,13 @@
 
 import { boxOf, hasCand, type CellIndex, type Digit, type Grid } from '../grid.js';
 import { COLS, ROWS, type Unit } from '../units.js';
-import { makeStep, type Elimination, type Step, type Technique, type TechniqueId } from '../step.js';
+import {
+  makeStep,
+  type Elimination,
+  type Step,
+  type Technique,
+  type TechniqueId,
+} from '../step.js';
 import { combinations } from './util.js';
 
 interface Orientation {
@@ -62,7 +68,13 @@ interface BaseLine {
 }
 
 /** d-candidate positions per base line, keeping lines with `lo..hi` positions. */
-function baseLinesFor(grid: Grid, o: Orientation, d: Digit, lo: number, hi: number): BaseLine[] {
+function baseLinesFor(
+  grid: Grid,
+  o: Orientation,
+  d: Digit,
+  lo: number,
+  hi: number,
+): BaseLine[] {
   const out: BaseLine[] = [];
   for (let li = 0; li < 9; li++) {
     const cells = o.base[li]!.cells.filter(
@@ -116,11 +128,17 @@ function basicFish(grid: Grid, n: number, technique: TechniqueId): Step | null {
           eliminations: elims,
           highlights: [
             { role: 'base', cells: baseCells, digits: [d] },
-            { role: 'elimination', cells: [...new Set(elims.map((e) => e.cell))], digits: [d] },
+            {
+              role: 'elimination',
+              cells: [...new Set(elims.map((e) => e.cell))],
+              digits: [d],
+            },
           ],
           description: `${FISH_NAME[n]} on ${d}: ${o.baseName}s ${picked
             .map((p) => p.line + 1)
-            .join(',')} confine ${d} to ${n} ${o.coverName}s → eliminate ${d} from those ${o.coverName}s outside the base ${o.baseName}s.`,
+            .join(
+              ',',
+            )} confine ${d} to ${n} ${o.coverName}s → eliminate ${d} from those ${o.coverName}s outside the base ${o.baseName}s.`,
         });
       }
     }
@@ -137,7 +155,9 @@ function finnedFish(grid: Grid, n: number, technique: TechniqueId): Step | null 
 
       for (const combo of combinations(lines.length, n)) {
         const picked = combo.map((i) => lines[i]!);
-        const basePos = picked.flatMap((p) => p.cells.map((c) => ({ cell: c, cross: o.crossOf(c), line: p.line })));
+        const basePos = picked.flatMap((p) =>
+          p.cells.map((c) => ({ cell: c, cross: o.crossOf(c), line: p.line })),
+        );
         const distinctCross = [...new Set(basePos.map((b) => b.cross))];
         if (distinctCross.length <= n) continue; // no room for a fin → basic, handled elsewhere
 
@@ -159,18 +179,26 @@ function finnedFish(grid: Grid, n: number, technique: TechniqueId): Step | null 
           if (elims.length === 0) continue;
 
           const finCells = [...new Set(fins.map((f) => f.cell))];
-          const bodyCells = basePos.map((b) => b.cell).filter((c) => !finCells.includes(c));
+          const bodyCells = basePos
+            .map((b) => b.cell)
+            .filter((c) => !finCells.includes(c));
           return makeStep({
             technique,
             eliminations: elims,
             highlights: [
               { role: 'base', cells: bodyCells, digits: [d] },
               { role: 'fin', cells: finCells, digits: [d] },
-              { role: 'elimination', cells: [...new Set(elims.map((e) => e.cell))], digits: [d] },
+              {
+                role: 'elimination',
+                cells: [...new Set(elims.map((e) => e.cell))],
+                digits: [d],
+              },
             ],
             description: `Finned ${FISH_NAME[n]} on ${d}: ${o.baseName}s ${picked
               .map((p) => p.line + 1)
-              .join(',')} with fin in box ${finBox + 1} → eliminate ${d} from cover ${o.coverName} cells that see the fin.`,
+              .join(
+                ',',
+              )} with fin in box ${finBox + 1} → eliminate ${d} from cover ${o.coverName} cells that see the fin.`,
           });
         }
       }
