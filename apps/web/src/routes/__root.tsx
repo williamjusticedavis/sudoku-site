@@ -15,6 +15,7 @@ import { TourProvider, useTour } from '../features/tour/TourProvider.js';
 import { homeFor, tourFor } from '../features/tour/steps.js';
 import { TourOverlay } from '../features/tour/TourOverlay.js';
 import appCss from '../styles/app.css?url';
+import { themeBootScript } from '../features/shell/themeBoot.js';
 
 export const Route = createRootRoute({
   // Only the things that are genuinely the same on every page live here.
@@ -174,10 +175,6 @@ function SiteHeader() {
     </header>
   );
 }
-
-// Set the theme class before first paint so there's no flash. Reads a saved
-// choice, else falls back to the OS preference.
-const themeBootScript = `(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.classList.toggle('dark',t==='dark');}catch(e){}})();`;
 
 /** The region between the header and the footer.
  *
