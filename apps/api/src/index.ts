@@ -26,10 +26,47 @@ app.disable('x-powered-by');
  * allowed: CORS only governs browsers, and rejecting them would break the
  * platform's own checks without stopping anybody.
  */
-const allowedOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+function normalizeOrigin(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  // Railway hands out bare hostnames (`sudoku-site-production.up.railway.app`)
+  // where an Origin header is always absolute, so assume https for those.
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+  try {
+    return new URL(withScheme).origin;
+  } catch {
+    console.warn(`[api] ignoring unparseable CORS origin: ${trimmed}`);
+    return undefined;
+  }
+}
+
+/**
+ * Railway injects the public URL of every other service in the project as
+ * `RAILWAY_SERVICE_<NAME>_URL`. Picking those up means the browser app is
+ * allowed automatically after a rename or a new environment, instead of the
+ * OCR upload failing until somebody remembers to set a variable by hand.
+ * `CORS_ORIGINS` still wins when set, and is the right place for a custom
+ * domain.
+ */
+function railwayServiceOrigins(): string[] {
+  return Object.entries(process.env)
+    .filter(([k, v]) => /^RAILWAY_SERVICE_.*_URL$/.test(k) && v)
+    .map(([, v]) => normalizeOrigin(v!))
+    .filter((o): o is string => Boolean(o));
+}
+
+const allowedOrigins = [
+  ...new Set(
+    [
+      ...(process.env.CORS_ORIGINS ?? 'http://localhost:3000')
+        .split(',')
+        .map(normalizeOrigin),
+      ...railwayServiceOrigins(),
+    ].filter((o): o is string => Boolean(o)),
+  ),
+];
 
 app.use(
   cors({
@@ -155,4 +192,7 @@ app.use(
 const port = Number(process.env.PORT ?? 4000);
 app.listen(port, '0.0.0.0', () => {
   console.log(`[api] listening on http://0.0.0.0:${port}`);
+  // Printed because a browser-visible CORS refusal is otherwise invisible from
+  // the server side — the request succeeds and the browser discards it.
+  console.log(`[api] allowed browser origins: ${allowedOrigins.join(', ')}`);
 });
