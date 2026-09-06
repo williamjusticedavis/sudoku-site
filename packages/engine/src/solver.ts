@@ -45,17 +45,41 @@ import { alsXz } from './techniques/als.js';
 import { makeForcingChain } from './techniques/forcing.js';
 
 /**
- * Pattern techniques in difficulty order (everything except the forcing-chain
- * backstop). Subsets are interleaved by size (pair-level before triple-level,
- * etc.) rather than all naked then all hidden — a hidden pair is easier to spot
- * than a naked quad, so it should be preferred when both apply. (CLAUDE.md's
- * grouped listing is the teaching taxonomy, expected to be reordered against
- * real findability.)
+ * Pattern techniques in difficulty order — the order the solver walks, and so
+ * the order that decides which technique a hint shows when several apply.
+ *
+ * This tracks the Learn curriculum's TIER boundaries (beginner → intermediate →
+ * advanced → master, see CLAUDE.md): the solver should never teach a Master
+ * technique on a grid where an Intermediate one would do. It is not the same
+ * list as the curriculum, though, and is not derived from it:
+ *
+ *   - Order WITHIN a tier is a judgement call about how findable a pattern is
+ *     by eye. CLAUDE.md is explicit that its own `order_in_tier` is just
+ *     listing order and was never ranked, so it is not authoritative here.
+ *   - Subsets interleave by SIZE, not naked-then-hidden — a hidden pair is
+ *     easier to spot than a naked quad, so it should win when both apply.
+ *   - BUG+1 is deliberately hoisted out of Advanced to sit just after the
+ *     intermediate block. It is one of the most findable things on the whole
+ *     list once the grid is in its shape ("every unsolved cell has two
+ *     candidates except one"), and it costs nothing to promote: it can only
+ *     fire when the grid is already all-bivalue-but-one, so it is never
+ *     competing with the wings and chains on an ordinary position.
+ *   - The fish family (X-Wing / Swordfish / Jellyfish) is deliberately NOT
+ *     kept together. They were built as a group because they share structure,
+ *     but they are three different tiers to a solver's eye: an X-Wing is
+ *     Intermediate and a Jellyfish is genuinely hard to see.
+ *
+ * Reordering this list is not a local change: `packages/db/src/seed.ts` builds
+ * each lesson's lead-up from `TECHNIQUES` minus the target, so the order
+ * decides the exact position every curated puzzle fires on. Any change here
+ * needs a reseed, and the seed throws if a lesson's technique stops firing.
  */
 export const PATTERN_TECHNIQUES: Technique[] = [
+  // Beginner
   lastFreeCell,
   nakedSingle,
   hiddenSingle,
+  // Intermediate
   pointing,
   claiming,
   nakedPair,
@@ -65,20 +89,22 @@ export const PATTERN_TECHNIQUES: Technique[] = [
   nakedQuad,
   hiddenQuad,
   xWing,
-  swordfish,
-  jellyfish,
   skyscraper,
+  // Advanced — BUG+1 first, see the note above
+  bug1,
   twoStringKite,
   turbotFish,
-  simpleColoring,
+  swordfish,
   xyWing,
-  xyzWing,
   wWing,
-  uniqueRectangle,
-  bug1,
+  xyzWing,
   finnedXWing,
   finnedSwordfish,
+  uniqueRectangle,
+  // Master
+  jellyfish,
   finnedJellyfish,
+  simpleColoring,
   xyChain,
   alsXz,
 ];
@@ -108,7 +134,10 @@ export interface SolveResult {
  * fires. Returns the applied Step, or null if none fired (grid is stuck).
  * Mutates `grid` via `applyStep`.
  */
-export function hint(grid: Grid, techniques: readonly Technique[] = TECHNIQUES): Step | null {
+export function hint(
+  grid: Grid,
+  techniques: readonly Technique[] = TECHNIQUES,
+): Step | null {
   for (const technique of techniques) {
     const step = technique(grid);
     if (step !== null) {
@@ -148,7 +177,11 @@ export function solveAll(
  * `upTo` is the number of steps to apply (default: all). Returns a new Grid;
  * the caller's grids are untouched.
  */
-export function replay(puzzle: string, steps: readonly Step[], upTo = steps.length): Grid {
+export function replay(
+  puzzle: string,
+  steps: readonly Step[],
+  upTo = steps.length,
+): Grid {
   const grid = parseGrid(puzzle);
   const n = Math.max(0, Math.min(upTo, steps.length));
   for (let i = 0; i < n; i++) {

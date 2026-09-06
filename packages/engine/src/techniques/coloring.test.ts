@@ -14,7 +14,8 @@ function gridWith(cands: Record<CellIndex, Digit[]>): Grid {
   return g;
 }
 
-const elimKeys = (s: Step): string[] => s.eliminations.map((e) => `${e.cell}:${e.digit}`).sort();
+const elimKeys = (s: Step): string[] =>
+  s.eliminations.map((e) => `${e.cell}:${e.digit}`).sort();
 const firesCount = (file: string, tech: TechniqueId): number =>
   runFixture(file).outcomes.filter((o) => o.techniques.includes(tech)).length;
 
@@ -35,14 +36,42 @@ describe('simpleColoring (white-box: Rule 2 — colour repeats in a unit)', () =
   });
 });
 
-describe('simpleColoring fires on its named fixture', () => {
-  // singles-chain.csv (KyleGough "Singles Chains" == Simple Coloring). Real
-  // puzzles exercise both Rule 2 and the Rule 4 (sees-both-colours) path, which
-  // is impractical to hand-craft minimally.
-  it('fires across singles-chain.csv and solves them, no wrong', () => {
+describe('simpleColoring in the solver', () => {
+  // singles-chain.csv is KyleGough's "Singles Chains" set — the same idea as
+  // Simple Coloring. It no longer fires here, and that is correct rather than a
+  // regression: Skyscraper, 2-String Kite and Turbot Fish are short-chain
+  // special cases of the very same single-digit colouring logic, and the
+  // technique order puts them above it (they are Intermediate/Advanced, this is
+  // Master). A solver that reached for Simple Coloring on a grid a Skyscraper
+  // solves would be teaching the harder name for the same move.
+  //
+  // Simple Coloring earns its place on what those shapes miss — a longer or
+  // branching chain. That is a genuinely rare position: it fired 5 times across
+  // the whole fixture corpus under the old build-order list and 2 under the
+  // current one, so this asserts the corpus, not any single file.
+  it('still solves singles-chain.csv correctly, via simpler chain techniques', () => {
     const summary = runFixture('singles-chain.csv');
     expect(summary.wrong).toEqual([]);
-    expect(firesCount('singles-chain.csv', 'simple-coloring')).toBeGreaterThan(0);
+    const chainish = summary.outcomes.filter((o) =>
+      o.techniques.some((t) =>
+        (
+          [
+            'skyscraper',
+            'two-string-kite',
+            'turbot-fish',
+            'simple-coloring',
+          ] as TechniqueId[]
+        ).includes(t),
+      ),
+    );
+    expect(chainish.length).toBeGreaterThan(0);
+  });
+
+  it('still fires somewhere in the corpus', () => {
+    const fires =
+      firesCount('17clue_100subset.csv', 'simple-coloring') +
+      firesCount('jellyfish.csv', 'simple-coloring');
+    expect(fires).toBeGreaterThan(0);
   });
 });
 
