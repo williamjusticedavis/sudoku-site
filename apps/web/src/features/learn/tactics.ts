@@ -31,9 +31,26 @@ export const getTactic = createServerFn({ method: 'GET' })
   .validator((slug: string) => slug)
   .handler(async ({ data: slug }): Promise<TacticDetail | null> => {
     const { db } = await import('@sudoku/db');
-    const tactic = await db.query.tactics.findFirst({
-      where: (t, { eq }) => eq(t.slug, slug),
-    });
+
+    // The lesson row and the curriculum index are independent, so they go in
+    // parallel — only the puzzles query needs the tactic's id, which keeps a
+    // lesson page to two round trips rather than three.
+    //
+    // `ordered` is the neighbours (prev/next) and the full list behind them,
+    // which the lesson's prose resolves its cross-references against. `tierEnum`
+    // is declared beginner→master, so Postgres orders the enum that way and
+    // (tier, orderInTier) is exactly the curriculum sequence — which is what
+    // makes `next` cross tier boundaries correctly. 28 rows of three columns;
+    // cheaper than a window function for the clarity it costs.
+    const [tactic, ordered] = await Promise.all([
+      db.query.tactics.findFirst({
+        where: (t, { eq }) => eq(t.slug, slug),
+      }),
+      db.query.tactics.findMany({
+        columns: { slug: true, name: true, tier: true },
+        orderBy: (t, { asc }) => [asc(t.tier), asc(t.orderInTier)],
+      }),
+    ]);
     if (!tactic) return null;
 
     const puzzles = await db.query.tacticPuzzles.findMany({
@@ -41,17 +58,6 @@ export const getTactic = createServerFn({ method: 'GET' })
       orderBy: (p, { asc, desc }) => [desc(p.isTeachingExample), asc(p.id)],
     });
 
-    // Neighbours in curriculum order, and the full list behind them (the
-    // lesson's prose resolves its cross-references against it).
-    // `tierEnum` is declared beginner→master,
-    // so Postgres orders the enum that way and (tier, orderInTier) is exactly
-    // the curriculum sequence — which makes `next` cross tier boundaries
-    // correctly. 28 rows of two columns; cheaper than a window function for
-    // the clarity it costs.
-    const ordered = await db.query.tactics.findMany({
-      columns: { slug: true, name: true, tier: true },
-      orderBy: (t, { asc }) => [asc(t.tier), asc(t.orderInTier)],
-    });
     const at = ordered.findIndex((t) => t.slug === slug);
 
     return {
