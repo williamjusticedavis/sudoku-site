@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- Source for apps/web/public/og.png — the link-preview card.
+       Regenerate after editing (sharp lives in apps/api's node_modules):
+         cd apps/api && node -e "const s=require('sharp');s('../web/src/features/seo/og-card.svg').png().toFile('../web/public/og.png')"
+       Text is rendered to pixels at generation time, so the font only has to
+       exist on the machine that generates it — not on any viewer's device. -->
+  <rect width="1200" height="630" fill="#0a0a0a"/>
+
+  <!-- Hairline frame, inset from the edge so platforms that crop slightly
+       don't shave it off. -->
+  <rect x="40" y="40" width="1120" height="550" fill="none" stroke="#262626" stroke-width="2" rx="16"/>
+
+  <!-- The mark: 3x3 grid, centre cell solved. Same geometry as Logo.tsx. -->
+  <g transform="translate(497 96)">
+    <rect x="69" y="69" width="69" height="69" fill="#2563eb"/>
+    <g stroke="#a3a3a3" stroke-width="5" stroke-linecap="round" opacity="0.8">
+      <line x1="0" y1="0" x2="207" y2="0"/>
+      <line x1="0" y1="69" x2="207" y2="69"/>
+      <line x1="0" y1="138" x2="207" y2="138"/>
+      <line x1="0" y1="207" x2="207" y2="207"/>
+      <line x1="0" y1="0" x2="0" y2="207"/>
+      <line x1="69" y1="0" x2="69" y2="207"/>
+      <line x1="138" y1="0" x2="138" y2="207"/>
+      <line x1="207" y1="0" x2="207" y2="207"/>
+    </g>
+  </g>
+
+  <text x="600" y="416" text-anchor="middle"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="92" font-weight="700" fill="#fafafa" letter-spacing="-2">Gridwise</text>
+
+  <text x="600" y="474" text-anchor="middle"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="34" fill="#a3a3a3">The sudoku solver that shows its working</text>
+
+  <text x="600" y="536" text-anchor="middle"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="26" fill="#60a5fa">28 techniques, each taught as its own lesson</text>
+</svg>
