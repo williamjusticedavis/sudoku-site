@@ -30,6 +30,33 @@ const app = new Hono();
  * `style-src` needs the same allowance for hydration-time style attributes.
  * Inline styles cannot execute, so that one costs little.
  */
+/**
+ * Origin of the OCR API, for `connect-src`.
+ *
+ * `VITE_API_URL` is not guaranteed to carry a scheme — Railway supplies a bare
+ * hostname (`api-production-xxxx.up.railway.app`), while locally it is a full
+ * `http://localhost:4000`. A bare hostname makes `new URL()` throw, and this
+ * runs at module scope, so an unparseable value takes the whole server down
+ * before it can listen rather than degrading a single header.
+ *
+ * A scheme-less value is assumed to be https, which is what Railway serves.
+ * Anything still unparseable is dropped: a slightly loose `connect-src` beats a
+ * site that will not boot.
+ */
+function resolveApiOrigin(raw) {
+  if (!raw) return undefined;
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    return new URL(withScheme).origin;
+  } catch {
+    console.warn(
+      `[web] VITE_API_URL is not a usable URL (${raw}); omitting it from connect-src`,
+    );
+    return undefined;
+  }
+}
+const apiOrigin = resolveApiOrigin(process.env.VITE_API_URL);
+
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
@@ -38,8 +65,8 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  // The OCR API. Same-site in production; keep in step if it ever moves hosts.
-  `connect-src 'self'${process.env.VITE_API_URL ? ` ${new URL(process.env.VITE_API_URL).origin}` : ''}`,
+  // The OCR API, which the browser calls directly.
+  `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'self'",
