@@ -7,7 +7,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sudoku}
       POSTGRES_DB: ${POSTGRES_DB:-sudoku}
     ports:
-      - '${DB_PORT:-5432}:5432'
+      # Bound to loopback deliberately. Publishing as '5432:5432' listens on
+      # every interface, which puts a database whose credentials are literally
+      # sudoku/sudoku on whatever network the laptop is joined to.
+      - '127.0.0.1:${DB_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

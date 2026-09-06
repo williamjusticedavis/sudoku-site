@@ -38,10 +38,16 @@ RUN pnpm install --frozen-lockfile
 # build time is the only time this needs to run.
 RUN pnpm --filter @sudoku/api generate:ocr-bank
 
-# ---- prod: runtime image for Render ----
+# ---- prod: runtime image ----
 FROM base AS prod
 ENV NODE_ENV=production
 COPY --from=build /app /app
 WORKDIR /app/apps/api
+# Drop root. This service decodes attacker-supplied images through libvips and
+# (optionally) forks tesseract on them, which is the most plausible place for a
+# native memory bug to be reachable — it should not start life as uid 0. `node`
+# is an unprivileged user the base image already provides.
+RUN chown -R node:node /app
+USER node
 EXPOSE 4000
 CMD ["pnpm", "start"]

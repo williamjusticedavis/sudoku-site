@@ -33,5 +33,8 @@ FROM base AS prod
 ENV NODE_ENV=production
 COPY --from=build /app /app
 WORKDIR /app/apps/web
+# Drop root — nothing here needs it at runtime.
+RUN chown -R node:node /app
+USER node
 EXPOSE 3000
 CMD ["node", "server.mjs"]
