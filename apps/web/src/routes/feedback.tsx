@@ -83,10 +83,16 @@ function FeedbackPage() {
 
       {status === 'sent' ? (
         <div className="flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 p-4 text-base text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
-          <p className="font-medium">Sent — thank you.</p>
+          <p className="font-medium">Thank you — your feedback has been received.</p>
           <p>
-            It&rsquo;s read, though there&rsquo;s no way to reply: the form takes a name
-            and a message and deliberately doesn&rsquo;t ask for an email.
+            Every message gets read and considered. Gridwise is a side project, built for
+            the love of the game rather than to a roadmap, so changes land when they land
+            — but the things people write in genuinely shape what gets worked on next.
+          </p>
+          <p>
+            One thing worth saying plainly: there&rsquo;s no way to write back. The form
+            asks for a name and a message and deliberately not an email, so nothing that
+            arrives here can be replied to.
           </p>
           <p>
             <Link to="/" className={inlineLink}>

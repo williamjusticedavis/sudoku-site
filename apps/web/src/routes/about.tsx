@@ -72,6 +72,17 @@ function AboutPage() {
             </Link>{' '}
             teaches you to spot the same ones yourself.
           </p>
+          <p>
+            It&rsquo;s a side project, built in spare time for the love of the game rather
+            than to any deadline. That shows in both directions: nothing here exists
+            because a roadmap called for it, and the parts that got the most attention are
+            the ones that were the most fun to get right — the technique explanations,
+            mostly. If something is missing or wrong, the{' '}
+            <Link to="/feedback" className={inlineLink}>
+              feedback page
+            </Link>{' '}
+            is the way to say so.
+          </p>
         </Section>
 
         <Section title="How the solver works">
