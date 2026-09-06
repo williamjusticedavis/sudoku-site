@@ -42,23 +42,12 @@ const infoCard = [
   'dark:border-neutral-600 dark:bg-black/40 dark:hover:border-neutral-500 dark:hover:bg-black/60',
 ].join(' ');
 
-/** 0-100 completion for a tactic. No auth yet, so everything reads as
- * not started; wire this to `user_tactic_progress` when auth lands. */
-function progressFor(): number {
-  return 0;
-}
-
-function ProgressBar({ value, fill }: { value: number; fill: string }) {
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-      <div
-        className={`h-full rounded-full ${fill}`}
-        style={{ width: `${Math.round(value)}%` }}
-      />
-    </div>
-  );
-}
-
+/** A lesson card. Deliberately carries no completion state: nothing about
+ * which lessons you have read is tracked, on the server or otherwise. Learn is
+ * a reference you dip into when a puzzle has you stuck, not a course you work
+ * through in order, so a progress bar was measuring something nobody was
+ * actually doing — and the accounts needed to persist it bought one bar and
+ * nothing else. */
 function TacticCard({ tactic, accent }: { tactic: TacticSummary; accent: TierAccent }) {
   return (
     <Link
@@ -72,7 +61,6 @@ function TacticCard({ tactic, accent }: { tactic: TacticSummary; accent: TierAcc
       <p className="grow text-sm text-neutral-600 dark:text-neutral-400">
         {tactic.description}
       </p>
-      <ProgressBar value={progressFor()} fill={accent.bar} />
     </Link>
   );
 }
@@ -154,7 +142,6 @@ function LearnOverview() {
           const list = byTier[tier];
           if (list.length === 0) return null;
           const accent = TIER_ACCENT[tier];
-          const done = list.filter(() => progressFor() >= 100).length;
           return (
             <section key={tier}>
               <div
@@ -167,8 +154,10 @@ function LearnOverview() {
                 <h2 className={`text-lg font-semibold ${accent.heading}`}>
                   {TIER_LABEL[tier]}
                 </h2>
+                {/* How big the tier is, not how much of it you have done.
+                    Nothing here is tracked — see the note on TacticCard. */}
                 <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {done} / {list.length}
+                  {list.length} {list.length === 1 ? 'lesson' : 'lessons'}
                 </span>
               </div>
               <div className={`mb-4 h-0.5 w-full rounded-full ${accent.rule}`} />

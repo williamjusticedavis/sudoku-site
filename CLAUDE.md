@@ -38,7 +38,8 @@ Phase 1 goals:
 ## Tech stack (full project, for context — most of this is Phase 2)
 
 - Frontend: TanStack Start
-- Backend: Express (Node.js) — scoped to auth + OCR only. Learn content
+- Backend: Express (Node.js) — scoped to OCR only (auth was dropped, see the
+  data model). Learn content
   (tactics / tactic_puzzles) is NOT served by Express: it is read via TanStack
   Start server loaders querying `@sudoku/db` directly.
 - Database: Postgres, via Drizzle ORM
@@ -53,12 +54,8 @@ Phase 1 goals:
 
   ## Data model (Phase 2 — Postgres via Drizzle)
 
-Exactly 6 tables. Do not add more without checking in first — in particular,
-do NOT persist solves (see below).
-
-**users**
-
-- id, username (unique), password_hash, created_at
+Exactly 3 tables. Do not add more without checking in first — in particular,
+do NOT persist solves, and do NOT reintroduce accounts (see below).
 
 **tactics** (static reference data — seeded once, not user-generated)
 
@@ -71,29 +68,17 @@ do NOT persist solves (see below).
   steps: highlighted cells/units, explanation text per step),
   is_teaching_example (bool — first one per tactic vs. practice ones)
 
-**user_tactic_progress**
-
-- user_id (FK), tactic_id (FK), completed (bool), completed_at — drives the
-  per-level progress bar in the Learn section
-
-**user_favorite_tactics**
-
-- user_id (FK), tactic_id (FK) — favoriting a tactic/lesson (e.g. "W-Wing"),
-  NOT a puzzle. There is no puzzle-favoriting feature.
-
-**feedback** (added 2026-09-04 — the 6th table, sign-off given)
+**feedback** (added 2026-09-04)
 
 - id, name, message, created_at
 
 Backs the footer's `/feedback` page. Deliberately **name + message only**:
 
-- **No email column**, and no contact field of any kind. `users` has no email
-  either, so the site holds no address for anybody by design. This means
-  feedback is one-way and cannot be replied to, which was the accepted
-  trade rather than an oversight — the page says so to the sender.
-- **No `user_id` FK.** Anyone can send feedback without an account, and there
-  are no auth routes yet, so nothing would populate it.
-- Read it with `pnpm db:studio`. There is no admin page; that needs auth.
+- **No email column**, and no contact field of any kind. The site holds no
+  address for anybody by design, so feedback is one-way and cannot be replied
+  to. That was the accepted trade rather than an oversight — the page says so
+  to the sender.
+- Read it with `pnpm db:studio`. There is no admin page.
 - Abuse handling is a honeypot field plus length caps (name 80, message 4000),
   enforced in `apps/web/src/features/feedback/submitFeedback.ts` on both sides.
   A tripped honeypot is told it succeeded and nothing is written. There is
@@ -101,13 +86,32 @@ Backs the footer's `/feedback` page. Deliberately **name + message only**:
 
 ### Explicitly excluded — do not build these
 
+- **No accounts, no auth, no progress tracking (decided 2026-09-06).**
+  `users`, `sessions`, `user_tactic_progress` and `user_favorite_tactics` were
+  dropped in migration `0002` — all four were empty; nothing was lost. The
+  Learn progress bars and the per-tier `done / total` counter went with them.
+  The reasoning, so this doesn't get relitigated:
+  - Auth would have been the only thing on the site demanding identity, on a
+    site whose solver deliberately persists nothing and whose feedback form
+    deliberately takes no email. It contradicted the product.
+  - The schema had no email column, so there was **no password-reset path** —
+    a forgotten password meant permanent lockout. Fixing that meant taking on
+    PII, an email provider and deliverability, all to power a progress bar.
+  - Learn is a reference people hit when a specific puzzle has them stuck, not
+    a linear course. "Completed" was measuring something nobody was doing —
+    you don't finish learning X-Wing, you get better at spotting it.
+  - Favorites had no UI and no demonstrated demand; 28 items across four tiers
+    all fit on one screen, so there was no findability problem to solve.
+    If a per-device convenience is ever wanted, `localStorage` is the answer —
+    not a users table. The one plausible login (an admin view for reading
+    feedback) is a single-person problem: use `db:studio`, or gate it on one
+    env-var secret.
 - **No solve/solve-step persistence of any kind.** The solver page is fully
-  stateless and ephemeral for every user, logged in or not. Closing the tab
-  loses the puzzle; re-entering the grid from scratch is required to resume.
-  This was a deliberate, explicit decision — don't add a `solves` or
-  `solve_steps` table even if it seems like an obvious/easy addition.
-- **No `saved_puzzles` table.** Favorites are tactic-scoped only (see
-  `user_favorite_tactics` above), not puzzle-scoped.
+  stateless and ephemeral. Closing the tab loses the puzzle; re-entering the
+  grid from scratch is required to resume. This was a deliberate, explicit
+  decision — don't add a `solves` or `solve_steps` table even if it seems like
+  an obvious/easy addition.
+- **No `saved_puzzles` table.** Nothing is puzzle-scoped or user-scoped.
 
 ## Core engine design decisions
 
@@ -225,7 +229,7 @@ worth blocking on.
 5. ALS-XZ
 
 **Technique families**: two or more tactics that are separate, fully
-independent lessons (own progress bar, own practice puzzles) but share the
+independent lessons (own page, own practice puzzles) but share the
 same underlying engine technique, and should get a shared visual
 grouping/label in the Learn tier layout. Known families: Hidden Single split
 (Cross-Hatching + Last Possible Number — see below). Locked Candidates
@@ -238,7 +242,7 @@ directions of the same locked-candidates idea), same treatment as the Hidden
 Single split. Unlike that split, though, the two directions don't need
 separate vocabulary to recognize by eye — a learner sees the same box∩line
 overlap either way, just eliminating on whichever side is narrower — so
-keeping them as two independent lessons (two progress bars, two favorites)
+keeping them as two independent lessons
 added bookkeeping without adding teaching value. Merged into a single
 `tactics` row, slug `pointing`, name "Pointing/Claiming"; its curated
 puzzles cover both directions (see `packages/db/src/seed.ts`). The engine
@@ -404,4 +408,4 @@ Env vars / secrets handling: delegated to your judgment. Reasonable defaults exp
 Postgres hosting in production: Railway's managed Postgres.
 Once infra is scaffolded
 
-Move into building actual pages/features per the existing plan already in this file: solver page, Learn section, auth, etc. The Learn curriculum (tiers/tactics) is now locked — see "Learn curriculum — tactics table" above — after Phase 1 surfaced the real technique landscape beyond the original planning list.
+Move into building actual pages/features per the existing plan already in this file: solver page, Learn section, etc. (auth is NOT on that list any more — see "Explicitly excluded" in the data model). The Learn curriculum (tiers/tactics) is now locked — see "Learn curriculum — tactics table" above — after Phase 1 surfaced the real technique landscape beyond the original planning list.

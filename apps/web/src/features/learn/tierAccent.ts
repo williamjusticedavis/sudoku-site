@@ -15,8 +15,6 @@ export interface TierAccent {
   heading: string;
   /** The horizontal rule under a tier heading / lesson title. */
   rule: string;
-  /** Progress bar fill. */
-  bar: string;
   /** Tactic card: border plus its hover state. */
   card: string;
   /** Dashed wrapper around a technique family. */
@@ -34,7 +32,6 @@ export const TIER_ACCENT: Record<Tier, TierAccent> = {
   beginner: {
     heading: 'text-emerald-700 dark:text-emerald-400',
     rule: 'bg-emerald-500/60',
-    bar: 'bg-emerald-500',
     card: 'border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50/60 dark:border-emerald-800 dark:hover:border-emerald-600 dark:hover:bg-emerald-950/30',
     family: 'border-emerald-300 dark:border-emerald-800/80',
     familyLabel: 'text-emerald-700/80 dark:text-emerald-400/80',
@@ -44,7 +41,6 @@ export const TIER_ACCENT: Record<Tier, TierAccent> = {
   intermediate: {
     heading: 'text-sky-700 dark:text-sky-400',
     rule: 'bg-sky-500/60',
-    bar: 'bg-sky-500',
     card: 'border-sky-300 hover:border-sky-500 hover:bg-sky-50/60 dark:border-sky-800 dark:hover:border-sky-600 dark:hover:bg-sky-950/30',
     family: 'border-sky-300 dark:border-sky-800/80',
     familyLabel: 'text-sky-700/80 dark:text-sky-400/80',
@@ -54,7 +50,6 @@ export const TIER_ACCENT: Record<Tier, TierAccent> = {
   advanced: {
     heading: 'text-amber-700 dark:text-amber-400',
     rule: 'bg-amber-500/60',
-    bar: 'bg-amber-500',
     card: 'border-amber-300 hover:border-amber-500 hover:bg-amber-50/60 dark:border-amber-800 dark:hover:border-amber-600 dark:hover:bg-amber-950/30',
     family: 'border-amber-300 dark:border-amber-800/80',
     familyLabel: 'text-amber-700/80 dark:text-amber-400/80',
@@ -64,7 +59,6 @@ export const TIER_ACCENT: Record<Tier, TierAccent> = {
   master: {
     heading: 'text-rose-700 dark:text-rose-400',
     rule: 'bg-rose-500/60',
-    bar: 'bg-rose-500',
     card: 'border-rose-300 hover:border-rose-500 hover:bg-rose-50/60 dark:border-rose-800 dark:hover:border-rose-600 dark:hover:bg-rose-950/30',
     family: 'border-rose-300 dark:border-rose-800/80',
     familyLabel: 'text-rose-700/80 dark:text-rose-400/80',

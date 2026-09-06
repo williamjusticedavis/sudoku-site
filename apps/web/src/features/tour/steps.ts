@@ -182,7 +182,7 @@ export const LEARN_TOUR: readonly TourStep[] = [
     title: 'The tiers',
     body: [
       'Four of them, ordered roughly by how hard the pattern is to spot in a real grid rather than how complicated it is to describe — which is why Jellyfish sits in Master while X-Wing, the same shape at a smaller scale, is Intermediate.',
-      'The count beside each tier is how many of its lessons you have finished.',
+      'The number beside each tier is how many lessons are in it. Nothing is tracked or scored — read them in any order, or only the one you are stuck on.',
     ],
   },
   {
@@ -246,7 +246,7 @@ export const LESSON_TOUR: readonly TourStep[] = [
     title: 'Working through it',
     body: [
       'Show hint starts the walkthrough; from there Next reads on and Back returns a beat. The last step is Apply, which actually places the digit or clears the candidates.',
-      'Then it is on to the next puzzle, and the lesson counts as done when you finish the last one.',
+      'Then it is on to the next puzzle, and the lesson wraps up once you have worked through the last one.',
     ],
   },
   {
