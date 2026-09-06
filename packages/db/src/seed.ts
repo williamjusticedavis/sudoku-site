@@ -508,12 +508,9 @@ const PUZZLES: Record<string, [PuzzleEntry, PuzzleEntry, PuzzleEntry]> = {
     '030000200000750000000020004006079000084000900900000350091040000040083509000200000',
   ],
   'finned-swordfish': [
-    // Puzzle 1 went through two rounds: first fired on a hidden single at
-    // r5c4, then (once that was fixed) a 2-fin base — messier than the
-    // classic single-fin shape and inconsistent with puzzles 2/3. Both
-    // fixed via mine-finned-swordfish.ts, which now requires exactly one
-    // fin. Puzzles 2 and 3 were already clean, kept as-is. (Order of 1/2
-    // swapped per the owner's preference.)
+    // Mined by mine-finned-swordfish.ts, which requires exactly one fin: a
+    // 2-fin base is messier than the classic single-fin shape the lesson
+    // describes, and inconsistent with the other puzzles here.
     '000000000000000012003004000000000000000005600010270080000006003020000400780010000',
     '008500193610000700700300800040000009000070310000801070000050200300000040800006000',
     '000000000000000012003004000000000005000006307010000000000087000004010020020500080',

@@ -13,29 +13,22 @@ or hinted step-by-step) and a **Learn** section (tiered lessons teaching sudoku
 solving techniques, inspired by — but not copying — the Oakever iPhone app's
 dim/highlight/stepper lesson style).
 
-## Current phase: Phase 1 — Solving engine only
+## Current phase: Phase 2 — the website
 
-We are **not** building the website yet. The only active work right now is the
-solving engine in `packages/engine`. Do not scaffold `apps/web` or `apps/api`
-beyond empty placeholders unless explicitly asked.
+The engine is done (see "Phase 1 — complete" below). Active work is the site
+around it: `apps/web`, `apps/api`, and the Learn content in `packages/db`.
 
-Phase 1 goals:
+The engine's own goals, kept because they still constrain changes to it:
 
-- Implement sudoku solving techniques as individual, testable functions
-- Port/adapt logic from `GillesArcas/sudosol` (Python, MIT licensed) as a
-  reference — keep the MIT attribution notice in this repo once porting begins
-- Go well beyond the original teaching-tactic list (see below) — aim for the
-  fuller technique set sudosol and similar solvers implement, since the engine
-  needs to reliably solve _any_ valid grid a user submits, not just ones using
-  the originally-planned teaching set
-- Tests from the start, alongside each technique as it's implemented —
-  validate against known datasets (e.g. KyleGough/sudoku's puzzle sets) where
-  possible, not just hand-written cases
-- Implementation order: whatever groups/ports most easily (e.g. the fish
-  family — X-Wing/Swordfish/Jellyfish — share structure and are worth doing
-  together), not strict difficulty order
+- Techniques are individual, testable functions, validated against known
+  datasets (KyleGough/sudoku's puzzle sets) rather than only hand-written cases
+- The technique set goes well beyond the teaching curriculum, because the
+  engine has to solve _any_ valid grid a user submits, not just ones that
+  happen to use a lesson's technique
+- `GillesArcas/sudosol` (Python, MIT) is the reference the logic was adapted
+  from; its MIT notice stays at `packages/engine/LICENSE-sudosol`
 
-## Tech stack (full project, for context — most of this is Phase 2)
+## Tech stack
 
 - Frontend: TanStack Start
 - Backend: Express (Node.js) — scoped to OCR only (auth was dropped, see the
@@ -396,7 +389,9 @@ When spawning subagents (Agent/Task tool), the routing block is automatically in
   formatter with format-on-save and `prettier.requireConfig: true`, so
   VS Code formatting matches the pre-commit hook.
 
-Phase 1 is complete and committed (locally, not pushed). The solving engine in packages/engine solves any valid grid via real, explainable technique logic (28 pattern techniques, including Simple Coloring and ALS-XZ, plus a depth-1 forcing-chain backstop), verified against an independent brute-force oracle across 1137+ puzzles, and personally hand-tested via the CLI by the project owner — including notation input/validation (parseGridWithCandidates, checkForMistakes, reconcileNotation). Do not reopen Phase 1 work unless explicitly asked.
+### Phase 1 — complete
+
+Phase 1 is complete and committed. The solving engine in packages/engine solves any valid grid via real, explainable technique logic (28 pattern techniques, including Simple Coloring and ALS-XZ, plus a depth-1 forcing-chain backstop), verified against an independent brute-force oracle across 1137+ puzzles, and personally hand-tested via the CLI by the project owner — including notation input/validation (parseGridWithCandidates, checkForMistakes, reconcileNotation). Do not reopen Phase 1 work unless explicitly asked.
 
 **Technique order — FIXED 2026-09-06 (commit `d0ba7cc`).** `PATTERN_TECHNIQUES`
 in `solver.ts` used to be in build order, so the solver could apply a harder
@@ -415,7 +410,7 @@ the order decides the exact position every curated puzzle fires on. The seed
 throws if a lesson's technique stops firing, so a break is loud rather than
 silent — but local AND production both need `db:seed` after any change here.
 
-We are now in Phase 2: building the actual website around the engine.
+Phase 2 (the website) is the current phase — see the top of this file.
 
 Infra decisions for Phase 2 (decide first, before pages/features)
 Docker, full docker-compose for local dev: web (TanStack Start), api (Express), db (Postgres) all running together via one docker-compose up. Get hot-reload working correctly via proper volume mounts (bind-mount source, keep node_modules in a container-only volume) — this is a known trip-up, get it right from the start rather than patching it in later.

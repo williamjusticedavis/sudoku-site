@@ -9,7 +9,7 @@ Local dev (via Docker, from repo root): `docker compose up`. Standalone:
 
 - `tsx watch src/index.ts` — dev with reload
 - `tsc` → `dist/`, `node dist/index.js` — production
-- `GET /health` — liveness (later: DB `select 1`)
+- `GET /health` — liveness; also runs `select 1` so it fails if Postgres is unreachable
 - `POST /ocr/grid` — multipart form, field `image` (pre-cropped photo of a 9x9
   grid). Returns `{ ok: true, grid, confidentCount, blankCount }` (81-char
   grid string, `.` for unread/blank cells) or `{ ok: false, error }`.

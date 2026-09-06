@@ -1,5 +1,7 @@
 node_modules/
 node-compile-cache/
+# tsx writes a compile cache here when its CLI is run from a package dir
+tsx-*/
 dist/
 coverage/
 *.tsbuildinfo

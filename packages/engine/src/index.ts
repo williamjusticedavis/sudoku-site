@@ -1,10 +1,12 @@
 /**
- * @sudoku/engine — framework-free sudoku solving engine (Phase 1).
+ * @sudoku/engine — framework-free sudoku solving engine.
+ *
+ * No framework imports and no I/O, so the whole solve runs in the browser.
  *
  * Public surface: grid types + candidate helpers, board geometry, candidate
  * computation and (de)serialization, validation/uniqueness, the Step model,
- * and the solving loop. Technique implementations are added under `src/` and
- * registered in `solver.TECHNIQUES` as they land.
+ * and the solving loop. Techniques live under `src/techniques/` and are
+ * registered in `solver.TECHNIQUES`.
  */
 
 export * from './grid.js';

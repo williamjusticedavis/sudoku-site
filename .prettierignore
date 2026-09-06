@@ -10,3 +10,8 @@ pnpm-lock.yaml
 **/.tanstack/**
 **/.nitro/**
 .husky/_/**
+
+# Licence texts are verbatim legal boilerplate — never reflow them.
+LICENSE
+**/LICENSE-*
+**/LICENSE*.txt
