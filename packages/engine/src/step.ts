@@ -10,7 +10,7 @@
  * fields are `readonly` — nothing may mutate a Step after creation.
  */
 
-import { bit, cellName, type CellIndex, type Digit, type Grid } from './grid.js';
+import { bit, type CellIndex, type Digit, type Grid } from './grid.js';
 import { PEERS } from './units.js';
 
 /**
@@ -189,9 +189,4 @@ export function applyStep(grid: Grid, step: Step): void {
       grid.candidates[p] = grid.candidates[p]! & clear;
     }
   }
-}
-
-/** Convenience: `"r3c7"`-style label for a placement/elimination target. */
-export function targetName(t: Placement | Elimination): string {
-  return `${cellName(t.cell)}=${t.digit}`;
 }

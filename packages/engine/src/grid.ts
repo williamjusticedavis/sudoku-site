@@ -82,14 +82,6 @@ export function hasCand(mask: CandidateMask, d: Digit): boolean {
   return (mask & bit(d)) !== 0;
 }
 
-export function addCand(mask: CandidateMask, d: Digit): CandidateMask {
-  return mask | bit(d);
-}
-
-export function removeCand(mask: CandidateMask, d: Digit): CandidateMask {
-  return mask & ~bit(d);
-}
-
 /** Number of candidates set in a mask (popcount over 9 bits). */
 export function candCount(mask: CandidateMask): number {
   let n = 0;
