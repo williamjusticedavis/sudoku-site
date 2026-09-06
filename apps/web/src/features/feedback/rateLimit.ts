@@ -15,7 +15,8 @@
  * would not hold across multiple replicas. The web service runs as one
  * instance today; if that changes this becomes a real gap, not a small one.
  */
-import { getRequestIP } from '@tanstack/react-start/server';
+import { isIP } from 'node:net';
+import { getRequestHeader, getRequestIP } from '@tanstack/react-start/server';
 
 const WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_PER_WINDOW = 5;
@@ -24,28 +25,85 @@ const MAX_TRACKED_IPS = 10_000;
 
 const hits = new Map<string, number[]>();
 
+/** Number of proxies that sit in front of this app and append to
+ * `X-Forwarded-For`. Railway's edge is the only one. If another is ever put in
+ * front (a CDN, say), this has to go up with it or the limit starts keying on
+ * the proxy instead of the client. */
+const TRUSTED_PROXY_HOPS = 1;
+
+/** Node reports IPv4 peers on a dual-stack listener as `::ffff:127.0.0.1`, and
+ * link-local addresses can carry a `%eth0` zone, so normalize both away before
+ * asking `node:net` whether what's left is an address at all. Hand-rolled
+ * regexes get this wrong: the mapped form has dots in an IPv6 address. */
+function normalizeIp(value: string): string | undefined {
+  const withoutZone = value.split('%')[0]!;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(withoutZone);
+  const candidate = mapped ? mapped[1]! : withoutZone;
+  return isIP(candidate) === 0 ? undefined : candidate;
+}
+
+/**
+ * The client address, taken from the end of `X-Forwarded-For` rather than the
+ * start.
+ *
+ * A proxy appends to whatever the client sent, so the header arrives as
+ * `<anything the client made up>, <address the proxy actually saw>`. Reading
+ * the leftmost entry — which is what `getRequestIP({ xForwardedFor: true })`
+ * does — hands the key straight to the caller, and rotating it defeats the
+ * limit entirely. Counting `TRUSTED_PROXY_HOPS` in from the right instead
+ * lands on the value our own proxy wrote, which a client cannot forge.
+ *
+ * Anything that isn't a well-formed address is discarded rather than used as a
+ * key, so a header full of junk can't inflate the map.
+ */
+function clientIp(): string | undefined {
+  const header = getRequestHeader('x-forwarded-for');
+  if (header) {
+    const parts = header
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const candidate = parts[parts.length - TRUSTED_PROXY_HOPS];
+    const normalized = candidate ? normalizeIp(candidate) : undefined;
+    if (normalized) return normalized;
+  }
+  // No usable forwarded header — fall back to the socket address, which is the
+  // real peer when nothing is proxying.
+  const direct = getRequestIP();
+  return direct ? normalizeIp(direct) : undefined;
+}
+
+/** Drop every address whose window has fully expired. */
 function prune(now: number) {
   for (const [ip, times] of hits) {
     const live = times.filter((t) => now - t < WINDOW_MS);
     if (live.length === 0) hits.delete(ip);
     else hits.set(ip, live);
   }
+  // Pruning expired entries can still leave the map at its cap if the traffic
+  // is genuinely that widespread. Evicting the oldest-inserted keys bounds it
+  // either way — Map iterates in insertion order, so this takes the entries
+  // that have been sitting longest.
+  if (hits.size > MAX_TRACKED_IPS) {
+    const excess = hits.size - MAX_TRACKED_IPS;
+    let dropped = 0;
+    for (const ip of hits.keys()) {
+      hits.delete(ip);
+      if (++dropped >= excess) break;
+    }
+  }
 }
 
 /**
  * `true` when this request is over the limit and should be refused.
  *
- * Fails OPEN when the caller's IP can't be determined: refusing everyone
+ * Fails OPEN when the caller's address can't be determined: refusing everyone
  * whose IP is unreadable would take the form down for real people to stop
  * abuse that the honeypot and length caps already blunt. The honeypot still
  * applies either way.
- *
- * `xForwardedFor` is trusted because the app only ever serves through
- * Railway's proxy, which sets that header itself. Running this anywhere the
- * header can be set by the client would make the limit trivially bypassable.
  */
 export function isRateLimited(): boolean {
-  const ip = getRequestIP({ xForwardedFor: true });
+  const ip = clientIp();
   if (!ip) return false;
 
   const now = Date.now();
