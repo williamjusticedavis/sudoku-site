@@ -2,8 +2,18 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { getTactics } from '../features/learn/tactics.js';
 import { PageLoading } from '../features/shell/PageLoading.js';
 import { TIER_LABEL, TIER_ORDER, type Tier } from '../features/learn/types.js';
+import { canonicalLink, seo } from '../features/seo/meta.js';
 
 export const Route = createFileRoute('/about')({
+  head: () => ({
+    meta: seo({
+      title: 'About',
+      description:
+        'Gridwise is a sudoku solver that shows its working, and a course in the techniques it uses. A side project, built for the love of the game.',
+      path: '/about',
+    }),
+    links: [canonicalLink('/about')],
+  }),
   // The lesson counts below come from the database rather than being written
   // into the copy. The curriculum is locked, but "locked" and "will never be
   // renumbered" are different things — the schema comment that claimed exactly

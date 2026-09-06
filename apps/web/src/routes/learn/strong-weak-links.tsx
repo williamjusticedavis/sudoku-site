@@ -1,7 +1,17 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { BackButton } from '../../features/learn/BackButton.js';
+import { canonicalLink, seo } from '../../features/seo/meta.js';
 
 export const Route = createFileRoute('/learn/strong-weak-links')({
+  head: () => ({
+    meta: seo({
+      title: 'Strong Links & Weak Links',
+      description:
+        'The vocabulary the chain-shaped techniques are built on. A strong link says not one means the other; a weak link only says not both.',
+      path: '/learn/strong-weak-links',
+    }),
+    links: [canonicalLink('/learn/strong-weak-links')],
+  }),
   component: StrongWeakLinksPage,
 });
 

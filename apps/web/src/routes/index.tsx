@@ -28,8 +28,20 @@ import { UndoIcon, RedoIcon } from '../features/solver/icons.js';
 import { StatusBadge } from '../features/solver/StatusBadge.js';
 import { StepNarration } from '../features/solver/StepNarration.js';
 import { TIER_ACCENT } from '../features/learn/tierAccent.js';
+import { canonicalLink, seo } from '../features/seo/meta.js';
 
-export const Route = createFileRoute('/')({ component: SolverPage });
+export const Route = createFileRoute('/')({
+  head: () => ({
+    meta: seo({
+      title: 'Sudoku Solver',
+      description:
+        'Paste, photograph or type in any sudoku and watch it solved one named technique at a time, with the reasoning for every move. Runs entirely in your browser.',
+      path: '/',
+    }),
+    links: [canonicalLink('/')],
+  }),
+  component: SolverPage,
+});
 
 const EXAMPLE =
   '53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79';

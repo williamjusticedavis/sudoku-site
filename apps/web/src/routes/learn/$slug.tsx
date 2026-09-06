@@ -16,6 +16,7 @@ import {
   type TacticLink,
 } from '../../features/learn/types.js';
 import { TIER_ACCENT } from '../../features/learn/tierAccent.js';
+import { canonicalLink, seo } from '../../features/seo/meta.js';
 
 export const Route = createFileRoute('/learn/$slug')({
   loader: async ({ params }) => {
@@ -23,6 +24,28 @@ export const Route = createFileRoute('/learn/$slug')({
     if (!tactic) throw notFound();
     return tactic;
   },
+  // The whole reason per-page metadata matters: 28 lessons whose name and
+  // description already live in the database, previously all claiming to be
+  // the same page. `loaderData` is undefined while the loader is pending and
+  // on a 404, so both fall back to something honest rather than throwing.
+  head: ({ loaderData, params }) =>
+    loaderData
+      ? {
+          meta: seo({
+            title: `${loaderData.name} — Sudoku Technique`,
+            description: loaderData.description,
+            path: `/learn/${params.slug}`,
+          }),
+          links: [canonicalLink(`/learn/${params.slug}`)],
+        }
+      : {
+          meta: seo({
+            title: 'Lesson',
+            description:
+              'A sudoku solving technique, explained and walked through on a real puzzle.',
+            path: `/learn/${params.slug}`,
+          }),
+        },
   component: LessonPage,
   // Every lesson is the same route with a different param, so moving between
   // them (the next/previous links) reuses the mounted component and only swaps

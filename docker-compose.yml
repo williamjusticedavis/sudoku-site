@@ -60,6 +60,9 @@ services:
       # @sudoku/db; inside the compose network the db is reachable at host `db`.
       # Overrides the localhost DATABASE_URL from .env (for host-run tooling).
       DATABASE_URL: postgres://${POSTGRES_USER:-sudoku}:${POSTGRES_PASSWORD:-sudoku}@db:5432/${POSTGRES_DB:-sudoku}
+      # Canonical/og:url origin for page metadata. Locally this is the dev
+      # server so shared links and canonical tags point somewhere real.
+      VITE_SITE_URL: ${VITE_SITE_URL:-http://localhost:3000}
       CHOKIDAR_USEPOLLING: 'true'
     ports:
       - '${WEB_PORT:-3000}:3000'

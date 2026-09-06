@@ -1,0 +1,5 @@
+# Everything here is public and worth indexing — the lesson pages especially.
+User-agent: *
+Allow: /
+
+Sitemap: https://sudoku-site-production.up.railway.app/sitemap.xml

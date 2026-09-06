@@ -1,7 +1,17 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { BackButton } from '../../features/learn/BackButton.js';
+import { canonicalLink, seo } from '../../features/seo/meta.js';
 
 export const Route = createFileRoute('/learn/basics')({
+  head: () => ({
+    meta: seo({
+      title: 'How Sudoku Works',
+      description:
+        'The single rule that defines a sudoku, what solved actually means, and the two words every lesson leans on: unit and candidate.',
+      path: '/learn/basics',
+    }),
+    links: [canonicalLink('/learn/basics')],
+  }),
   component: BasicsPage,
 });
 

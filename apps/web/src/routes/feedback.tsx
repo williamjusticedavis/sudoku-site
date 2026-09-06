@@ -6,8 +6,20 @@ import {
   submitFeedback,
   validateFeedback,
 } from '../features/feedback/submitFeedback.js';
+import { canonicalLink, seo } from '../features/seo/meta.js';
 
-export const Route = createFileRoute('/feedback')({ component: FeedbackPage });
+export const Route = createFileRoute('/feedback')({
+  head: () => ({
+    meta: seo({
+      title: 'Feedback',
+      description:
+        'Found a bug, hit a puzzle Gridwise got wrong, or want something that is not there yet? Send a note.',
+      path: '/feedback',
+    }),
+    links: [canonicalLink('/feedback')],
+  }),
+  component: FeedbackPage,
+});
 
 // Copied from the solver page rather than extracted: this codebase has no
 // shared button component and inventing one for a single form is a bigger
@@ -61,7 +73,14 @@ function FeedbackPage() {
     setError(null);
     setStatus('sending');
     try {
-      await submitFeedback({ data: { name, message, website } });
+      const result = await submitFeedback({ data: { name, message, website } });
+      if (!result.ok) {
+        setStatus('idle');
+        setError(
+          'That is a few messages in a short space of time. Please wait a little while before sending another.',
+        );
+        return;
+      }
       setStatus('sent');
     } catch {
       // The text typed is deliberately left in place — the form is still there

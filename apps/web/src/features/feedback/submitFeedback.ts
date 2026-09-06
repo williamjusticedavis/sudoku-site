@@ -49,6 +49,12 @@ interface Validated {
   spam: boolean;
 }
 
+/** Refusals are a returned result rather than a thrown error: the form needs to
+ * tell a rate-limited person something specific and true, and an error crossing
+ * the RPC boundary arrives as a generic failure the client can only report as
+ * "something went wrong". Invalid input still throws — that is a caller bug. */
+export type FeedbackResult = { ok: true } | { ok: false; reason: 'rate-limited' };
+
 export const submitFeedback = createServerFn({ method: 'POST' })
   .validator((input: FeedbackInput): Validated => {
     const spam = (input.website ?? '').trim() !== '';
@@ -58,7 +64,12 @@ export const submitFeedback = createServerFn({ method: 'POST' })
     }
     return { name: input.name.trim(), message: input.message.trim(), spam };
   })
-  .handler(async ({ data }): Promise<{ ok: true }> => {
+  .handler(async ({ data }): Promise<FeedbackResult> => {
+    // Before the honeypot check, so a bot that fills the honeypot still burns
+    // its allowance instead of getting unlimited free "successes".
+    const { isRateLimited } = await import('./rateLimit.js');
+    if (isRateLimited()) return { ok: false, reason: 'rate-limited' };
+
     if (data.spam) return { ok: true };
     const { db, feedback } = await import('@sudoku/db');
     await db.insert(feedback).values({ name: data.name, message: data.message });

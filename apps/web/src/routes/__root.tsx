@@ -16,22 +16,14 @@ import { homeFor, tourFor } from '../features/tour/steps.js';
 import { TourOverlay } from '../features/tour/TourOverlay.js';
 import appCss from '../styles/app.css?url';
 
-const DESCRIPTION =
-  'Solve any sudoku and see why each move works — every step a real, named technique, never a guess. Plus lessons on all 28 of them, from Naked Single to ALS-XZ.';
-
 export const Route = createRootRoute({
+  // Only the things that are genuinely the same on every page live here.
+  // Title/description/canonical are per-route (see `features/seo/meta.ts`) —
+  // when they were set here, all 33 pages claimed to be the same page.
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Gridwise — Sudoku Solver & Lessons' },
-      { name: 'description', content: DESCRIPTION },
-      { property: 'og:title', content: 'Gridwise' },
-      { property: 'og:description', content: DESCRIPTION },
-      { property: 'og:type', content: 'website' },
-      // `summary`, not `summary_large_image`: there is no share image yet, and
-      // the large-image card renders as an empty slab without one.
-      { name: 'twitter:card', content: 'summary' },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },

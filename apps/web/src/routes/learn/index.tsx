@@ -9,8 +9,18 @@ import {
   type Tier,
 } from '../../features/learn/types.js';
 import { TIER_ACCENT, type TierAccent } from '../../features/learn/tierAccent.js';
+import { canonicalLink, seo } from '../../features/seo/meta.js';
 
 export const Route = createFileRoute('/learn/')({
+  head: () => ({
+    meta: seo({
+      title: 'Learn Sudoku Techniques',
+      description:
+        'Every technique the solver uses, taught as its own lesson on a real puzzle — from Naked Single and Cross-Hatching up through X-Wing, XY-Wing and ALS-XZ.',
+      path: '/learn',
+    }),
+    links: [canonicalLink('/learn')],
+  }),
   loader: () => getTactics(),
   component: LearnOverview,
   // Declared per route rather than router-wide: a defaultPendingComponent also
