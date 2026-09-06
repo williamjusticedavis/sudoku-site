@@ -29,10 +29,9 @@ export function normalizeIp(value: string): string | undefined {
  * The client address, read from the END of `X-Forwarded-For`.
  *
  * A proxy appends to whatever the client sent, so the header arrives as
- * `<whatever the client invented>, <address the proxy saw>`. Trusting the
- * leftmost entry hands the rate-limit key to the caller and rotating it
- * defeats the limit entirely; counting in from the right lands on the value
- * our own proxy wrote.
+ * `<whatever the client supplied>, <address the proxy saw>`. Only the part our
+ * own proxy wrote is evidence; the rest is caller input and is never treated
+ * as an identity. Counting in from the right lands on the observed value.
  */
 export function clientKey(req: Pick<Request, 'headers' | 'socket'>): string | undefined {
   const header = req.headers['x-forwarded-for'];

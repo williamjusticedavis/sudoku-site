@@ -47,11 +47,11 @@ function normalizeIp(value: string): string | undefined {
  * start.
  *
  * A proxy appends to whatever the client sent, so the header arrives as
- * `<anything the client made up>, <address the proxy actually saw>`. Reading
- * the leftmost entry — which is what `getRequestIP({ xForwardedFor: true })`
- * does — hands the key straight to the caller, and rotating it defeats the
- * limit entirely. Counting `TRUSTED_PROXY_HOPS` in from the right instead
- * lands on the value our own proxy wrote, which a client cannot forge.
+ * `<whatever the client supplied>, <address the proxy actually saw>`. Only the
+ * part our own proxy wrote is evidence of anything; the rest is caller input
+ * and must never be treated as an identity. Counting `TRUSTED_PROXY_HOPS` in
+ * from the right lands on the observed value. Note this is NOT what
+ * `getRequestIP({ xForwardedFor: true })` returns — it reads from the left.
  *
  * Anything that isn't a well-formed address is discarded rather than used as a
  * key, so a header full of junk can't inflate the map.

@@ -38,9 +38,9 @@ describe('clientKey — the rate-limit bucket', () => {
   });
 
   it('takes the address the proxy appended, NOT the one the client sent', () => {
-    // This is the whole point. A proxy appends the address it saw to whatever
-    // the client supplied, so the leftmost entry is caller-controlled. Reading
-    // it would let anyone rotate the value and bypass the limit entirely.
+    // The invariant this file exists to hold: the bucket is keyed on the
+    // address the proxy observed, never on the caller-supplied part of the
+    // header in front of it.
     expect(clientKey(req('203.0.113.1, 198.51.100.7'))).toBe('198.51.100.7');
   });
 
