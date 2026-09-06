@@ -138,6 +138,23 @@ export function parseGridWithCandidates(input: string): Grid {
 }
 
 /**
+ * Parse a board string in either supported notation.
+ *
+ * A plain 81-char digit string (0/./- = blank) gets fresh computed candidates;
+ * the bracket-candidate notation from `serializeGridWithCandidates` is parsed
+ * verbatim, so a board captured mid-solve keeps the exact candidate state it
+ * was captured at rather than having it recomputed.
+ *
+ * The two are told apart by the presence of a bracket or whitespace, which the
+ * plain form never contains. Anything that stores boards in both shapes — the
+ * Learn seed, the lesson pages, the narration templates — should parse through
+ * here rather than choosing a parser itself.
+ */
+export function parseBoard(board: string): Grid {
+  return /[[\s]/.test(board) ? parseGridWithCandidates(board) : parseGrid(board);
+}
+
+/**
  * Serialize to the extended format: placed digits as-is, empty cells as
  * `[candidates]` (or `.` when a cell somehow has none). Rows are space-separated
  * and newline-joined so the output pastes back into `parseGridWithCandidates`.
@@ -153,7 +170,8 @@ export function serializeGridWithCandidates(grid: Grid): string {
     }
   }
   const rows: string[] = [];
-  for (let r = 0; r < SIZE; r++) rows.push(tokens.slice(r * SIZE, r * SIZE + SIZE).join(' '));
+  for (let r = 0; r < SIZE; r++)
+    rows.push(tokens.slice(r * SIZE, r * SIZE + SIZE).join(' '));
   return rows.join('\n');
 }
 

@@ -29,6 +29,7 @@ import { StatusBadge } from '../features/solver/StatusBadge.js';
 import { StepNarration } from '../features/solver/StepNarration.js';
 import { TIER_ACCENT } from '../features/learn/tierAccent.js';
 import { canonicalLink, seo } from '../features/seo/meta.js';
+import { btn, btnGhost, btnPrimary } from '../features/shell/controls.js';
 
 export const Route = createFileRoute('/')({
   head: () => ({
@@ -46,10 +47,8 @@ export const Route = createFileRoute('/')({
 const EXAMPLE =
   '53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79';
 
-const btn =
-  'rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40';
-const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
-const btnGhost = `${btn} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`;
+// Solver-only variants. The shared `btn`, `btnPrimary` and `btnGhost` live in
+// features/shell/controls.ts; these two are toolbar states no other page has.
 const btnActive = `${btn} border border-blue-500 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-200`;
 const btnAccent = `${btn} border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-900/40`;
 /** Tailwind text colour for a technique's curriculum tier, or null when it has

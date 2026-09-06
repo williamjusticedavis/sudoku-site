@@ -7,6 +7,7 @@ import {
   validateFeedback,
 } from '../features/feedback/submitFeedback.js';
 import { canonicalLink, seo } from '../features/seo/meta.js';
+import { btnPrimary, inlineLink } from '../features/shell/controls.js';
 
 export const Route = createFileRoute('/feedback')({
   head: () => ({
@@ -21,13 +22,6 @@ export const Route = createFileRoute('/feedback')({
   component: FeedbackPage,
 });
 
-// Copied from the solver page rather than extracted: this codebase has no
-// shared button component and inventing one for a single form is a bigger
-// change than the form itself.
-const btn =
-  'rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40';
-const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
-
 const field = [
   'w-full rounded-md border px-3 py-2 text-base',
   'border-neutral-300 bg-white text-neutral-900 placeholder:text-neutral-400',
@@ -36,9 +30,6 @@ const field = [
 ].join(' ');
 
 const label = 'text-sm font-medium text-neutral-900 dark:text-neutral-100';
-
-const inlineLink =
-  'font-medium text-blue-600 underline decoration-blue-600/30 underline-offset-2 hover:decoration-blue-600 dark:text-blue-400 dark:decoration-blue-400/30 dark:hover:decoration-blue-400';
 
 type Status = 'idle' | 'sending' | 'sent';
 

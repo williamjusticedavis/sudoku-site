@@ -3,6 +3,7 @@ import { getTactics } from '../features/learn/tactics.js';
 import { PageLoading } from '../features/shell/PageLoading.js';
 import { TIER_LABEL, TIER_ORDER, type Tier } from '../features/learn/types.js';
 import { canonicalLink, seo } from '../features/seo/meta.js';
+import { inlineLink } from '../features/shell/controls.js';
 
 export const Route = createFileRoute('/about')({
   head: () => ({
@@ -40,9 +41,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </section>
   );
 }
-
-const inlineLink =
-  'font-medium text-blue-600 underline decoration-blue-600/30 underline-offset-2 hover:decoration-blue-600 dark:text-blue-400 dark:decoration-blue-400/30 dark:hover:decoration-blue-400';
 
 function AboutPage() {
   const tactics = Route.useLoaderData();

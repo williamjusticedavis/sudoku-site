@@ -17,6 +17,7 @@ import {
 } from '../../features/learn/types.js';
 import { TIER_ACCENT } from '../../features/learn/tierAccent.js';
 import { canonicalLink, seo } from '../../features/seo/meta.js';
+import { btnLessonGhost, btnLessonPrimary } from '../../features/shell/controls.js';
 
 export const Route = createFileRoute('/learn/$slug')({
   loader: async ({ params }) => {
@@ -79,10 +80,6 @@ const EXPLORE_TIPS: Record<string, string> = {
     'Tip: double-click a placed number to bold that digit in every cell’s pencil marks too — makes it easy to spot the one cell where it’s still left.',
 };
 
-const btn =
-  'rounded-md px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40';
-const btnPrimary = `${btn} bg-blue-600 text-white hover:bg-blue-500`;
-const btnGhost = `${btn} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`;
 const tacticNavLink =
   'flex max-w-[48%] flex-col gap-0.5 rounded-md px-3 py-2 text-sm text-neutral-800 transition-colors dark:text-neutral-200';
 
@@ -338,7 +335,7 @@ function LessonPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className={btnPrimary}
+                  className={btnLessonPrimary}
                   onClick={() => setRevealed(true)}
                 >
                   Show hint
@@ -373,7 +370,7 @@ function LessonPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className={btnGhost}
+                    className={btnLessonGhost}
                     onClick={() => setApplied(false)}
                   >
                     Back
@@ -384,7 +381,7 @@ function LessonPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className={btnGhost}
+                  className={btnLessonGhost}
                   disabled={stepIndex === 0 && !applied}
                   onClick={() => {
                     if (applied) setApplied(false);
@@ -397,7 +394,7 @@ function LessonPage() {
                 {applied ? (
                   <button
                     type="button"
-                    className={btnPrimary}
+                    className={btnLessonPrimary}
                     onClick={() => goToPuzzle(puzzleIndex + 1)}
                   >
                     {isLastPuzzle ? 'Finish' : 'Next puzzle'}
@@ -405,7 +402,7 @@ function LessonPage() {
                 ) : isFinalStep ? (
                   <button
                     type="button"
-                    className={btnPrimary}
+                    className={btnLessonPrimary}
                     onClick={() => setApplied(true)}
                   >
                     Apply
@@ -413,7 +410,7 @@ function LessonPage() {
                 ) : (
                   <button
                     type="button"
-                    className={btnPrimary}
+                    className={btnLessonPrimary}
                     onClick={() => setStepIndex((i) => i + 1)}
                   >
                     Next

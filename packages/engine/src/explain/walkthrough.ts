@@ -20,18 +20,11 @@
  * beat come straight from the engine Step — only the sentence scaffolding is
  * templated.
  */
-import { parseGrid, parseGridWithCandidates } from '../candidates.js';
+import { parseBoard } from '../candidates.js';
 import { cellName, hasCand, type Digit, type Grid } from '../grid.js';
 import type { Step } from '../step.js';
 import { commonPeers, sees } from '../units.js';
 import type { ExplainBeat } from './types.js';
-
-/** A lesson board string is either a plain 81-char digit string or the
- * bracket-candidate notation from `serializeGridWithCandidates` — mirrors
- * the web app's `parseLessonGrid`. */
-function parseBoard(board: string): Grid {
-  return /[[\s]/.test(board) ? parseGridWithCandidates(board) : parseGrid(board);
-}
 
 type Role = 'base' | 'cover' | 'fin' | 'placement' | 'elimination' | 'related' | 'scan';
 

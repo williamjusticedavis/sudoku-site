@@ -26,15 +26,13 @@ import { eq } from 'drizzle-orm';
 import {
   cloneGrid,
   hint,
-  parseGrid,
-  parseGridWithCandidates,
+  parseBoard,
   serializeGrid,
   serializeGridWithCandidates,
   hasUniqueSolution,
   solve,
   solveAll,
   TECHNIQUES,
-  type Grid,
   type Step,
   type Technique,
   bug1,
@@ -635,16 +633,6 @@ function excluded(slug: string, target: Technique): Technique[] {
   if (TEACHING_RELABELS.has(slug)) return [hiddenSingle];
   if (slug === 'pointing') return [pointing, claiming];
   return [target];
-}
-
-/** A PUZZLES entry is normally a plain 81-char digit string, but can also be
- * the bracket-candidate notation from `serializeGridWithCandidates` — for a
- * puzzle authored directly from an already-reduced position (e.g. captured
- * from a real solve) rather than a raw clue set the lead-up has to reduce
- * itself. Mirrors the web app's `parseLessonGrid` / `walkthrough.ts`'s own
- * `parseBoard`. */
-function parseBoard(board: string): Grid {
-  return /[[\s]/.test(board) ? parseGridWithCandidates(board) : parseGrid(board);
 }
 
 type Fired = { step: Step; gridBefore: string | undefined };

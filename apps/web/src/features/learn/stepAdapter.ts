@@ -1,15 +1,12 @@
-import { parseGrid, parseGridWithCandidates, type Grid, type Step } from '@sudoku/engine';
+import { parseBoard, type Grid, type Step } from '@sudoku/engine';
 import { beatAsStep, stepCells as beatCells } from '../solver/highlights.js';
 import type { LessonStep } from './types.js';
 
-/**
- * Parse a lesson board string. A plain 81-char digit string (0 = blank) gets
- * fresh computed candidates; the extended `[candidates]`-per-cell format
- * (`HintStep.gridBefore` when lead-up moves were applied) is parsed verbatim so
- * the board shows the exact candidate state the technique fired on.
- */
+/** The engine's `parseBoard` under the name the lesson code reads by. A lesson
+ * board is `HintStep.gridBefore`, which is in bracket-candidate notation
+ * whenever lead-up moves were applied and a plain clue string otherwise. */
 export function parseLessonGrid(grid: string): Grid {
-  return /[[\s]/.test(grid) ? parseGridWithCandidates(grid) : parseGrid(grid);
+  return parseBoard(grid);
 }
 
 /**
