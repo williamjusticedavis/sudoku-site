@@ -396,7 +396,24 @@ When spawning subagents (Agent/Task tool), the routing block is automatically in
   formatter with format-on-save and `prettier.requireConfig: true`, so
   VS Code formatting matches the pre-commit hook.
 
-Phase 1 is complete and committed (locally, not pushed). The solving engine in packages/engine solves any valid grid via real, explainable technique logic (28 pattern techniques, including Simple Coloring and ALS-XZ, plus a depth-1 forcing-chain backstop), verified against an independent brute-force oracle across 1137+ puzzles, and personally hand-tested via the CLI by the project owner — including notation input/validation (parseGridWithCandidates, checkForMistakes, reconcileNotation). Do not reopen Phase 1 work unless explicitly asked. One known, deliberately-accepted limitation: technique priority order in solver.ts's TECHNIQUES list reflects implementation convenience (build order), not the finalized difficulty tiers below — this means the solver can occasionally apply a structurally-harder technique (e.g. XY-Wing) before an easier one (e.g. BUG+1) when both are valid on the same grid state. This is accepted as-is for now; do not "fix" it unprompted.
+Phase 1 is complete and committed (locally, not pushed). The solving engine in packages/engine solves any valid grid via real, explainable technique logic (28 pattern techniques, including Simple Coloring and ALS-XZ, plus a depth-1 forcing-chain backstop), verified against an independent brute-force oracle across 1137+ puzzles, and personally hand-tested via the CLI by the project owner — including notation input/validation (parseGridWithCandidates, checkForMistakes, reconcileNotation). Do not reopen Phase 1 work unless explicitly asked.
+
+**Technique order — FIXED 2026-09-06 (commit `d0ba7cc`).** `PATTERN_TECHNIQUES`
+in `solver.ts` used to be in build order, so the solver could apply a harder
+technique (XY-Wing) before an easier one (BUG+1). It now tracks the curriculum's
+TIER boundaries: Skyscraper moved above Swordfish/Jellyfish (splitting the fish
+family, which is intentional — an X-Wing is Intermediate, a Jellyfish is Master),
+Simple Coloring moved down out of the Advanced block, and BUG+1 was deliberately
+hoisted to just after the Intermediate block. Order _within_ a tier remains a
+findability judgement call, NOT derived from `order_in_tier` (which CLAUDE.md
+says was never ranked). The full rationale is in the doc comment above
+`PATTERN_TECHNIQUES` — read it before reordering again.
+
+**Reordering that list requires a reseed.** `packages/db/src/seed.ts`'s
+`fireTarget` builds each lesson's lead-up from `TECHNIQUES` minus the target, so
+the order decides the exact position every curated puzzle fires on. The seed
+throws if a lesson's technique stops firing, so a break is loud rather than
+silent — but local AND production both need `db:seed` after any change here.
 
 We are now in Phase 2: building the actual website around the engine.
 
