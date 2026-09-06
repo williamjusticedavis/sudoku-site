@@ -1,11 +1,9 @@
 /**
- * One-off: re-mine ALS-XZ example puzzles.
+ * Mines ALS-XZ example puzzles for the seed.
  *
- * The originally-seeded ALS-XZ puzzles use a 1-cell ALS on one side (a bivalue
- * cell) plus a 4-cell ALS on the other — which reads as a naked quad/quint, not
- * a two-ALS chain. This searches for puzzles where BOTH almost-locked sets have
- * >= 2 cells and sit in DIFFERENT units, so the pattern actually looks like
- * ALS-XZ.
+ * Requires BOTH almost-locked sets to have >= 2 cells and to sit in DIFFERENT
+ * units. A 1-cell ALS (a bivalue cell) paired with a 4-cell one reads as a
+ * naked quad/quint rather than a two-ALS chain, whatever the engine calls it.
  *
  * Source: the 100 committed 17-clue solutions × random sudoku symmetry
  * transforms; holes dug back out keeping a unique solution.
@@ -183,11 +181,11 @@ const SIMPLER = [
   hiddenTriple,
   hiddenQuad,
 ];
-// Every named technique strictly below Master tier — used to check for the
-// OTHER kind of degenerate hit (found the hard way on Simple Coloring):
-// not "something simpler is ALSO playable somewhere", which is normal at
-// any real position, but "something simpler reproduces the exact SAME
-// elimination" — genuinely redundant, not a real ALS-XZ example.
+// Every named technique strictly below Master tier, used to reject the subtle
+// kind of degenerate hit: not "something simpler is ALSO playable somewhere"
+// (normal at any real position, and not a problem), but "something simpler
+// reproduces the exact SAME elimination" — which makes the puzzle redundant as
+// an ALS-XZ example, since the learner never needs the technique.
 const EASIER = [
   ...SIMPLER,
   hiddenSingle,

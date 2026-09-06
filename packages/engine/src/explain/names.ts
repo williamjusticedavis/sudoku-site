@@ -1,12 +1,14 @@
 import type { TechniqueId } from '../step.js';
 
 /**
- * Display names for technique ids. The solver's step list used to print the
- * raw id (`"als-xz"`, `"bug+1"`, `"2-string-kite"`), which reads as debug
- * output next to the Learn section's proper names — and worse, doesn't match
- * the name of the lesson that teaches the very same pattern. These are exactly
- * the `tactics.name` values seeded for the Learn curriculum, plus the four ids
- * with no lesson of their own.
+ * Display names for technique ids, so the solver's step list never shows a raw
+ * id (`"als-xz"`, `"bug+1"`, `"2-string-kite"`) — those read as debug output,
+ * and they don't match the name of the lesson teaching that same pattern.
+ *
+ * These are exactly the `tactics.name` values seeded for the Learn curriculum,
+ * plus the four ids with no lesson of their own. Keep them in step with the
+ * seed: a name that drifts here reads as a different technique to anyone
+ * moving between the solver and its lesson.
  */
 const NAMES: Record<string, string> = {
   given: 'Given',

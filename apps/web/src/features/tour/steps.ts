@@ -7,13 +7,12 @@
  * walkthrough at different speeds; that hand-written marks get verified and
  * kept; that the step list can be scrubbed).
  *
- * There is one per screen, and each stays on the screen it describes. An
- * earlier version was a single walk that navigated from the solver into Learn
- * halfway through, which meant the reader was teleported mid-tour and the
- * machinery had to cope with targets that didn't exist yet on a page that
- * hadn't rendered. Splitting them means every step's target is on screen when
- * the tour starts, and each one ends by pointing at somewhere else rather than
- * dragging you there.
+ * There is one per screen, and each stays on the screen it describes. Keeping
+ * them separate is what guarantees every step's target is already rendered when
+ * the tour starts: a single walk that navigated between pages mid-tour would
+ * teleport the reader and leave the machinery aiming at targets that don't
+ * exist yet. Each tour ends by pointing somewhere else rather than dragging you
+ * there.
  *
  * The step list gets its own rather than a few stops inside the solver tour,
  * because it only exists after a solve — most people opening the solver tour

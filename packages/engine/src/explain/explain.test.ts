@@ -153,7 +153,7 @@ describe('techniqueName', () => {
   it('names every technique the solver registers', () => {
     for (const { step } of everyStep()) {
       const name = techniqueName(step.technique);
-      // A mapped name, not the raw slug the step list used to print.
+      // A mapped display name, never the raw technique id.
       expect(name, step.technique).not.toBe(step.technique);
       expect(name, step.technique).toMatch(/^[A-Z0-9]/);
     }

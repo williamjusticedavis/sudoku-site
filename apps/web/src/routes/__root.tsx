@@ -42,21 +42,19 @@ function RootComponent() {
 }
 
 // Which tab is highlighted is decided here from the pathname, not from the
-// `data-status="active"` attribute TanStack Link sets. Link's own matching is
-// prefix-based, which used to light two tabs at once back when the `?` was a
-// link to `/learn/basics`. The `?` now starts a tour instead of owning a route,
-// so Learn simply covers `/learn` and everything under it — including the
-// basics page, which is reached from a card inside Learn.
+// `data-status="active"` attribute TanStack Link sets: Link's matching is
+// prefix-based, so any route nested under another tab's path lights both tabs
+// at once. Learn covers `/learn` and everything below it — including the basics
+// page, which is reached from a card inside Learn.
 function isLearnActive(pathname: string) {
   return pathname === '/learn' || pathname.startsWith('/learn/');
 }
 
 // Idle and active are separate, complete class strings rather than one string
-// with `data-[status=active]:` overrides layered on top. An active tab that
-// still carried the idle `hover:` classes hit the earlier bug where the idle
-// and active rules set the same property in the same variant and stylesheet
-// order picked the wrong one. The active strings simply have no `hover:` rules,
-// so an active tab holds its colours on hover.
+// with `data-[status=active]:` overrides layered on top. Layering them puts the
+// idle and active rules on the same property in the same variant, where the
+// winner comes down to stylesheet order rather than intent. The active strings
+// carry no `hover:` rules at all, so an active tab holds its colours on hover.
 const navBase = 'rounded-md px-2.5 py-1 text-sm font-medium transition-colors';
 const navIdle = [
   navBase,
@@ -189,17 +187,15 @@ const themeBootScript = `(function(){try{var t=localStorage.getItem('theme');if(
  * itself to fit. Every other page wants the opposite — grow with the content
  * and let the page scroll.
  *
- * It used to be applied unconditionally, which was invisible until the site
- * gained a footer: on a long page the wrapper stayed at the viewport remainder
- * while its content overflowed it, so the footer painted across the middle of
- * `/learn` with lesson cards showing through and the rest of the page running
- * on underneath. Dropping it outright is not the answer either — that breaks
- * the solver as soon as a solve puts the step list on screen (measured: the
- * board grows past the viewport and the whole page starts scrolling).
+ * It has to stay scoped to that page at that width, because both extremes
+ * break something. Applied everywhere, a long page's content overflows a
+ * wrapper pinned to the viewport remainder, and the footer paints across the
+ * middle of `/learn` with lesson cards showing through underneath. Dropped
+ * entirely, the solver's board grows past the viewport as soon as a solve puts
+ * the step list on screen and the whole page starts scrolling (measured).
  *
- * So it is scoped to the one page that wants it, at the one width where that
- * page is locked. Below `lg` the solver scrolls like anything else — which is
- * also what keeps its footer clear of the docked step bar.
+ * Below `lg` the solver scrolls like anything else — which is also what keeps
+ * its footer clear of the docked step bar.
  */
 function MainRegion({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = useLocation({ select: (l) => l.pathname });

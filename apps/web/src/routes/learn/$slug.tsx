@@ -24,10 +24,10 @@ export const Route = createFileRoute('/learn/$slug')({
     if (!tactic) throw notFound();
     return tactic;
   },
-  // The whole reason per-page metadata matters: 28 lessons whose name and
-  // description already live in the database, previously all claiming to be
-  // the same page. `loaderData` is undefined while the loader is pending and
-  // on a 404, so both fall back to something honest rather than throwing.
+  // Each lesson's title and description come from the row the loader fetched,
+  // so all 28 describe themselves rather than sharing the root's copy.
+  // `loaderData` is undefined while the loader is pending and on a 404, so both
+  // fall back to something honest rather than throwing.
   head: ({ loaderData, params }) =>
     loaderData
       ? {

@@ -3,11 +3,10 @@
 // `tactics` + `tactic_puzzles` are the Learn curriculum (static reference data,
 // seeded from `seed.ts`); `feedback` is the one thing users write.
 //
-// There are deliberately no accounts. `users`, `sessions`,
-// `user_tactic_progress` and `user_favorite_tactics` were dropped on
-// 2026-09-06 along with the whole idea of tracking progress — see CLAUDE.md
-// for the reasoning. Solves were never persisted either, and there is no
-// saved_puzzles table. Nothing here is tied to a person.
+// There are deliberately no accounts, no progress tracking, no persisted
+// solves and no saved puzzles — nothing here is tied to a person. That is a
+// product decision, not a gap waiting to be filled; CLAUDE.md carries the
+// reasoning, and adding a table for any of it needs to be raised first.
 export * from './enums.js';
 export * from './tactics.js';
 export * from './tactic-puzzles.js';

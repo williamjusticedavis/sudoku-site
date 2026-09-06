@@ -1,10 +1,9 @@
 /**
- * One-off: re-mine XY-Chain example puzzles.
+ * Mines XY-Chain example puzzles for the seed.
  *
- * The originally-seeded xy-chain puzzles fire on a degenerate 2-cell "chain"
- * (a single bivalue link — indistinguishable from a naked pair's reasoning).
- * This searches for puzzles whose chain (the engine Step's `base` path) is
- * 4+ cells, so the lesson actually shows a chain being followed.
+ * Requires the chain (the engine Step's `base` path) to be 4+ cells, so the
+ * lesson shows a chain actually being followed. A 2-cell "chain" is a single
+ * bivalue link, indistinguishable from a naked pair's reasoning.
  *
  * Source: the 100 committed 17-clue solutions, multiplied by random sudoku
  * symmetry transforms into effectively unlimited distinct solved grids; holes

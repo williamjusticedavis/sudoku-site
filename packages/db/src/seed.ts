@@ -2,11 +2,11 @@
  * Seed `tactics` and `tactic_puzzles` for the Learn section.
  *
  * Curriculum (tier / order / name / family) is transcribed from the locked
- * table in the repo-root CLAUDE.md. Puzzle grid strings started from the
- * Phase 2 `tactic-examples.md` working note (no longer in the repo), but
- * most have since been replaced — see the per-tactic comments below and the
- * `mine-*.ts` scripts, each a reusable, uniqueness/cleanliness-checked miner
- * for one tactic's example puzzles.
+ * table in the repo-root CLAUDE.md. Puzzle grid strings come from the
+ * `mine-*.ts` scripts — each a reusable, uniqueness/cleanliness-checked miner
+ * for one tactic's example puzzles. The per-tactic comments below record what
+ * each set has to satisfy to teach its tactic honestly; re-mine against those
+ * criteria rather than swapping in an arbitrary grid that merely fires.
  *
  * `step_data` is NOT hand-written: for every puzzle the target technique is run
  * by the real engine on that exact grid and its `Step` (description, role-
@@ -340,12 +340,10 @@ const CURRICULUM: CurriculumRow[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Puzzle strings — plain 81-char grids (0 = blank), originally sourced from
-// tactic-examples.md (no longer in the repo) but mostly replaced since via
-// the mine-*.ts scripts (see each tactic's own comment below for its
-// history). First entry per tactic becomes the teaching example; the rest
-// are practice puzzles. A puzzle flagged "fires-only, not proven necessary"
-// is listed last so it's never the teaching example.
+// Puzzle strings — plain 81-char grids (0 = blank), mined by the mine-*.ts
+// scripts. First entry per tactic becomes the teaching example; the rest are
+// practice puzzles. A puzzle flagged "fires-only, not proven necessary" is
+// listed last so it's never the teaching example.
 //
 // An entry is normally just that plain string. It can instead be a
 // `{ gridState, firedAt }` object for a puzzle authored directly from an
@@ -481,10 +479,9 @@ const PUZZLES: Record<string, [PuzzleEntry, PuzzleEntry, PuzzleEntry]> = {
     '000000000000000012003004000000003500010060000270000008000108000000720000009000600',
   ],
   'xy-wing': [
-    // Puzzles 1 and 3 originally fired with the pivot and both pincers all
-    // sitting in one row — technically a valid wing, but reads like a line
-    // scan instead of a wing tracing across boxes. Replaced via
-    // mine-xy-wing.ts with examples spread across rows/columns/boxes.
+    // Mined by mine-xy-wing.ts to spread the pivot and pincers across
+    // rows/columns/boxes. A wing whose three cells all sit in one row is
+    // technically valid but reads as a line scan, not as a wing.
     '100070000007000380030502100400007020021060000300000005000300000590010006000058000',
     '000000000000000012000034000000005300001000000052600000000270060340000800900000000',
     '900006000807050000000000549000200100759034000030090700608000900000007600000000072',
@@ -495,21 +492,19 @@ const PUZZLES: Record<string, [PuzzleEntry, PuzzleEntry, PuzzleEntry]> = {
     '000000000000000012000034000000005300001200000036000070000100008090000000750000400',
   ],
   'xyz-wing': [
-    // Puzzles 2 and 3 originally fired with a naked triple sitting right at
-    // the position — a learner who spots that solves it without ever
-    // needing XYZ-Wing. Replaced via mine-xyz-wing.ts with examples closer
-    // to puzzle 1's cleanliness (no naked/hidden single/pair/triple/quad,
-    // locked candidates, or simpler-fish/chain opportunity).
+    // Mined by mine-xyz-wing.ts against a cleanliness bar: no naked/hidden
+    // single/pair/triple/quad, locked candidates, or simpler fish/chain
+    // available at the firing position. A naked triple sitting there lets a
+    // learner solve the puzzle without ever needing XYZ-Wing.
     '000000000000000001002034000000000000000005260070800000000980007006000030205100000',
     '004200070010540900000007004030000060800350000000000502700490000000001090400063000',
     '900005000013070800000016007001080500000600001290000006800020670020000000004050009',
   ],
   'finned-x-wing': [
-    // Puzzles 2 and 3 originally fired on a degenerate 3-cell base (one
-    // base row missing a corner, covered only by the fin) — technically
-    // valid but doesn't read as "an X-Wing with one extra candidate" like
-    // the lesson describes. Replaced via mine-finned-x-wing.ts with the
-    // full 4-corner shape (puzzle 1 already had it, kept as-is).
+    // Mined by mine-finned-x-wing.ts for the full 4-corner shape. A
+    // degenerate 3-cell base (one base row missing a corner, covered only by
+    // the fin) is valid but doesn't read as "an X-Wing with one extra
+    // candidate", which is what the lesson describes.
     '000000000000000012000034000000000300005000006078600000000280070340000020900000000',
     '153000009090300600200004100000040060000851000000000800000000003300000408410000090',
     '030000200000750000000020004006079000084000900900000350091040000040083509000200000',
@@ -555,40 +550,28 @@ const PUZZLES: Record<string, [PuzzleEntry, PuzzleEntry, PuzzleEntry]> = {
     '028400301400000000000690000012009800000003009007040500050008100100200030000000700',
     '830020000009100000002050360000408600040092000000000200003009500080030097600000800',
   ],
-  // Re-mined 2026-08-27 (see mine-xy-chain.ts). The originals fired on a
-  // degenerate 2-cell "chain" (a single bivalue link). All three below are
-  // necessity-verified with a 5-8 cell chain that spans >=3 rows and >=3
-  // columns, so it reads as a chain rather than a locked-candidate move.
+  // Mined by mine-xy-chain.ts. All three are necessity-verified with a 5-8
+  // cell chain spanning >=3 rows and >=3 columns, so the move reads as a chain
+  // rather than a locked-candidate one, and none leaves a naked or hidden
+  // single playable at the firing position.
   'xy-chain': [
-    // Puzzles 1 and 3 originally fired with a naked single AND a hidden
-    // single sitting unplayed at the fired position — replaced via
-    // mine-xy-chain.ts's added cleanliness check. Puzzle 2 was already
-    // clean, kept as-is.
     '007049120000008003090001000004000601025000400000003000006070000040025009700000000',
     '070090030010050470003001000800000900006000300000700026400000009790600800030000200',
     '010302506504000030000000000900087050000060000000900071060000902090000010800005000',
   ],
-  // Re-mined again 2026-08-30: all 3 of the previous set had a hidden single
-  // (puzzle 3 also a naked single) sitting unplayed at the fired position —
-  // added that cleanliness check to mine-simple-coloring.ts. Clean +
-  // necessity-verified + chain>=6 turned out very rare (one hit in ~65k
-  // random puzzles); puzzle 2 relaxes to chain 5, still clean and
-  // necessity-verified, just a shorter chain. Puzzle 3's first replacement
-  // fired on a degenerate 4-cell chain confined to 2 rows/2 cols — literally
-  // an X-Wing shape wearing coloring's clothes — so a second mining pass
-  // added a rows<=2-and-cols<=2 rejection to the script.
+  // Mined by mine-simple-coloring.ts, which enforces four things at the firing
+  // position: necessity-verified, no single playable, a chain spread wider than
+  // 2 rows x 2 cols (that shape is an X-Wing in coloring's clothes), and no
+  // other technique producing the SAME elimination. That last check is the
+  // subtle one — an unrelated move existing elsewhere on the board is normal at
+  // any real mid-solve position and is fine; what makes a puzzle useless for
+  // teaching is another technique landing on the same cell+digit, since the
+  // learner never has to reach for coloring.
   //
-  // Puzzle 1 replaced again: even necessity-verified + spread + no-single
-  // wasn't a strong enough bar — the owner found (via the live solver, real
-  // step order) that both remaining picks had a technique reproducing the
-  // EXACT SAME elimination (Claiming/2-String-Kite on the same cell+digit)
-  // — genuinely redundant, not just "some other unrelated move exists
-  // elsewhere on the board" (which turns out to be completely normal at any
-  // real mid-solve position and isn't itself a problem). Fixed the miner's
-  // check to reject only on that same-elimination overlap, and replaced
-  // puzzle 1 with the owner's own found example (captured mid-solve from
-  // the real solver's natural step order, hence the bracket-candidate
-  // notation instead of a raw clue string — see `parseBoard` above).
+  // A clean chain of >=6 is very rare (roughly one hit in 65k random puzzles),
+  // so puzzle 2 relaxes to 5. Puzzle 1 is a position captured mid-solve from
+  // the solver's own step order, hence the bracket-candidate notation rather
+  // than a raw clue string — see `parseBoard` above.
   'simple-coloring': [
     {
       // Placed-digit-only stand-in (this mid-solve position's clues as if
@@ -601,28 +584,20 @@ const PUZZLES: Record<string, [PuzzleEntry, PuzzleEntry, PuzzleEntry]> = {
         '8 [45] 6 [47] 1 2 9 3 [57] [49] 7 1 [349] [3489] 5 [28] [28] 6 2 [59] 3 [89] 6 [789] [57] 1 4 7 6 5 1 [248] [48] 3 [248] 9 1 8 [24] [359] [39] [379] [457] 6 [25] 3 [24] 9 [57] [248] 6 1 [24578] [2578] 6 [29] [248] [348] 7 [348] [459] [459] 1 5 1 [48] 2 [489] [489] 6 7 3 [49] 3 7 6 5 1 [48] [248] [28]',
     },
     '840900000009600000000004070005209610000100040100080005700002300003060007500000020',
-    // Puzzle 3 was, it turns out, never actually replaced despite the
-    // comment above claiming otherwise — still the original degenerate
-    // example, where Claiming reproduces the exact same elimination
-    // (r8c5/r9c5 confining 7 to box 8 → remove from the rest, same cell the
-    // coloring chain targets). Replaced via the corrected overlap check.
     '030060020090005070087092000008010000009503600000000407053026040002000010000050300',
   ],
-  // Re-mined 2026-08-27 (see mine-als-xz.ts). Earlier batches read as a naked
-  // quint (a 4-cell ALS one cell short of a locked subset in its unit). All
-  // three below are necessity-verified AND: no single or naked/hidden subset
-  // playable where ALS-XZ fires, AND neither ALS is "almost a naked subset"
-  // (no other cell in its unit has candidates ⊆ its digits). So the highlighted
-  // cells genuinely only connect via the ALS-XZ chain. #1 is the shape the
-  // owner liked: a spread 3-cell row ALS + a 4-cell box ALS.
+  // Mined by mine-als-xz.ts. All three are necessity-verified, leave no single
+  // or naked/hidden subset playable where ALS-XZ fires, and use two ALSs
+  // neither of which is "almost a naked subset" (no other cell in the unit has
+  // candidates ⊆ its digits) — otherwise the move reads as a naked quint rather
+  // than a chain, and the highlighted cells look connected by something simpler.
+  //
+  // The miner also rejects on same-elimination overlap with ANY other
+  // technique, fish and wings included, not just simpler ones: a puzzle whose
+  // elimination an X-Wing also justifies teaches nothing about ALS-XZ.
+  // #1 is the preferred shape — a spread 3-cell row ALS plus a 4-cell box ALS.
   'als-xz': [
     '070840000900007300000060000020108060006004080007000500010090024000006007200000000',
-    // Puzzle 2 originally fired with a technique reproducing the EXACT SAME
-    // elimination (r5c3=1, also independently justified by an X-Wing and a
-    // Finned Swordfish) — the same "genuinely redundant" bug found on
-    // Simple Coloring's puzzles. mine-als-xz.ts's SIMPLER-only check never
-    // covered fish/wings/locked-candidates, so it slipped through; added
-    // the same same-elimination overlap check used for Simple Coloring.
     '004050000000030021290000007060000000700300090058090070003080005000000002006021080',
     '020001800460000003050600007000002400000000082200947000800000050005308010000070000',
   ],

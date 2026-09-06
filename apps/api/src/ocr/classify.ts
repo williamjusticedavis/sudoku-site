@@ -9,9 +9,9 @@ import type { CellOcrResult } from './tesseract.js';
 
 /** Below this (0-100) confidence, a cell's template-match read is discarded.
  * Confidence here is a normalized best-vs-second-best-digit gap, not
- * tesseract's TSV confidence — the two scales aren't comparable, and an
- * initial guess of 60 (borrowed from tesseract's scale) turned out to
- * reject almost every correct read. Empirically measured across a 405-cell
+ * tesseract's TSV confidence. The two scales are not comparable, so a value
+ * carried over from tesseract's range (60, say) sits far above anything useful
+ * here and rejects almost every correct read. Measured across a 405-cell
  * multi-font sample: mean confidence was 70.6 when the match was correct
  * vs. 19.8 when wrong, with 100% precision achievable down to a threshold
  * of ~20. 25 keeps a margin below that separation without giving back

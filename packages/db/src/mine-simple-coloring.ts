@@ -1,10 +1,10 @@
 /**
- * One-off: re-mine Simple Coloring example puzzles.
+ * Mines Simple Coloring example puzzles for the seed.
  *
- * The originally-seeded simple-coloring puzzles fire via a degenerate 2-cell
- * coloured component — visually indistinguishable from Pointing/Claiming. This
- * searches for puzzles where the coloured cluster is LONG (many conjugate-pair
- * links), so the lesson actually shows what makes Coloring distinctive.
+ * Selects for a LONG coloured cluster (many conjugate-pair links). A degenerate
+ * 2-cell component fires perfectly well but is visually indistinguishable from
+ * Pointing/Claiming, so it shows the learner nothing about what makes Coloring
+ * a distinct technique.
  *
  * Source: the 100 committed 17-clue solutions, multiplied by random sudoku
  * symmetry transforms (digit relabel, band/stack/row/col permutation,

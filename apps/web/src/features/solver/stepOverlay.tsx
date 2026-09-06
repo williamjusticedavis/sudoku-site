@@ -4,9 +4,9 @@ import { useId } from 'react';
  * The decorations a narrated step draws OVER the board: the outline framing
  * the unit being reasoned about, "this blocks that" arrows, and the link lines
  * that make a chain's shape readable. Shared by the solver grid and the Learn
- * lesson board so one step looks the same wherever it's read — they were
- * previously only on the lesson board, which is why the solver's step list
- * read as bare cell highlights next to the same technique's lesson.
+ * lesson board so one technique's step looks the same in both places — without
+ * this, the solver's step list falls back to bare cell highlights while the
+ * matching lesson draws the full picture.
  *
  * Structurally typed rather than taking an engine `Step`: the lesson board
  * feeds it a stored `LessonStep` and the solver an `ExplainBeat`.

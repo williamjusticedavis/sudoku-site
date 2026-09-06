@@ -32,9 +32,9 @@ interface TourValue {
 const TourContext = createContext<TourValue | null>(null);
 
 /** Tour state lives above the router outlet because the header owns the button
- * that starts it while the pages own the things it points at. Each tour stays
- * on one page, so this no longer has to survive a navigation mid-walk — but it
- * does have to be reachable from both sides. */
+ * that starts it while the pages own the things it points at, so it has to be
+ * reachable from both sides. Each tour stays on one page, so it does not have
+ * to survive a navigation mid-walk. */
 export function TourProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<{ tour: TourId; index: number } | null>(null);
 

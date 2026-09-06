@@ -14,10 +14,11 @@
  * Narration is templated per technique-role-family, not hand-written per puzzle
  * (5 shared templates cover 18 of the 28 tactics — singles, naked/hidden
  * subsets, the fish family, and XY-/XYZ-Wing; the other 10 each get a small
- * bespoke template, including Skyscraper/2-String Kite/Turbot Fish, which
- * used to share one generic "chain" template before each got its own
- * strong/weak-link-aware narration). The cells and digits in every beat come
- * straight from the engine Step — only the sentence scaffolding is templated.
+ * bespoke template). Skyscraper/2-String Kite/Turbot Fish are deliberately
+ * among the bespoke ones: a generic "chain" template can't name the strong and
+ * weak links that make each shape recognisable. The cells and digits in every
+ * beat come straight from the engine Step — only the sentence scaffolding is
+ * templated.
  */
 import { parseGrid, parseGridWithCandidates } from '../candidates.js';
 import { cellName, hasCand, type Digit, type Grid } from '../grid.js';
@@ -748,8 +749,8 @@ function skyscraperTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
 }
 
 /** 2-String Kite: one row strong link + one column strong link, whose inner
- * ends share a box. Narrated the same way as Skyscraper now that the
- * strong/weak link vocabulary exists: one strong link, then the other, then
+ * ends share a box. Narrated on the same shape as Skyscraper, in the shared
+ * strong/weak link vocabulary: one strong link, then the other, then
  * how their inner ends relate (a weak link, via the shared box), then the
  * elimination the two free ends produce together. Each cell keeps ONE role
  * (and colour) for the whole walkthrough — related cells stay related, base

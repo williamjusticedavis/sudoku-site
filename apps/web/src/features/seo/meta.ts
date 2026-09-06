@@ -1,14 +1,13 @@
 /**
  * Per-page metadata.
  *
- * Every route used to inherit the one `head` in `__root.tsx`, so all ~33 pages
- * — the 28 lesson pages included — served an identical title and description.
- * Search engines saw near-duplicates of the site's most valuable content, and
- * every shared link previewed the same way whichever lesson it pointed at.
+ * `seo()` returns the `meta` array a route's `head` should spread. Every route
+ * needs its own: a route without one falls back to the root `head`, and pages
+ * sharing a title and description look like near-duplicates to search engines
+ * and preview identically whichever one a shared link points at.
  *
- * `seo()` returns the `meta` array a route's `head` should spread. It always
- * emits title, description, canonical and the Open Graph/Twitter pair together,
- * because a page that sets only some of those is the state this was fixing.
+ * It emits title, description and the Open Graph/Twitter pair together as a
+ * set — a page carrying only some of those is the state this exists to avoid.
  */
 
 /** Absolute site origin, needed for canonical and `og:url` — relative URLs are

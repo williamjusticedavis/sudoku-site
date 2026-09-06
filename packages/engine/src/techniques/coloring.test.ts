@@ -38,17 +38,17 @@ describe('simpleColoring (white-box: Rule 2 — colour repeats in a unit)', () =
 
 describe('simpleColoring in the solver', () => {
   // singles-chain.csv is KyleGough's "Singles Chains" set — the same idea as
-  // Simple Coloring. It no longer fires here, and that is correct rather than a
-  // regression: Skyscraper, 2-String Kite and Turbot Fish are short-chain
-  // special cases of the very same single-digit colouring logic, and the
-  // technique order puts them above it (they are Intermediate/Advanced, this is
-  // Master). A solver that reached for Simple Coloring on a grid a Skyscraper
-  // solves would be teaching the harder name for the same move.
+  // Simple Coloring, but the solver is expected NOT to reach for it here.
+  // Skyscraper, 2-String Kite and Turbot Fish are short-chain special cases of
+  // the same single-digit colouring logic and sit above it in technique order
+  // (Intermediate/Advanced against Master), so they claim these grids first.
+  // Naming the harder technique for a move a Skyscraper makes would teach the
+  // wrong thing.
   //
   // Simple Coloring earns its place on what those shapes miss — a longer or
-  // branching chain. That is a genuinely rare position: it fired 5 times across
-  // the whole fixture corpus under the old build-order list and 2 under the
-  // current one, so this asserts the corpus, not any single file.
+  // branching chain — which is a genuinely rare position: 2 fires across the
+  // whole fixture corpus. Hence asserting against the corpus rather than any
+  // single file.
   it('still solves singles-chain.csv correctly, via simpler chain techniques', () => {
     const summary = runFixture('singles-chain.csv');
     expect(summary.wrong).toEqual([]);
