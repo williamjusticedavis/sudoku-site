@@ -50,4 +50,9 @@ WORKDIR /app/apps/api
 RUN chown -R node:node /app
 USER node
 EXPOSE 4000
-CMD ["pnpm", "start"]
+# tsx directly rather than through `pnpm start`. corepack was enabled as root
+# during the build, so an unprivileged runtime user has no pnpm on hand and
+# corepack re-fetches it from the registry on every container start — a network
+# dependency and a delay on the startup path, for no benefit. This is the same
+# command `pnpm start` would run.
+CMD ["./node_modules/.bin/tsx", "src/index.ts"]
