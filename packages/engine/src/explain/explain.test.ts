@@ -16,6 +16,12 @@ const PUZZLES = [
   '000000012000035000000600070700000300000400800100000000000120000080000040050000600',
   // Empty Rectangle.
   '000000000000001023004056000000007000000200001006000500000800600030000000120900000',
+  // Unique Rectangle Types 2, 3, 4 and 6, and Hidden Rectangle.
+  '000000001000000020003004000000005300010000600270000000000080000000120030004700900',
+  '000000000000001002034000050000000600000050340200000000000002107040800000056000000',
+  '000000000000000012003004000000012000000305000060000007000700830050000400290000000',
+  '000000001000002030004005000000000560070000000310080000000010400005000200060300000',
+  '000000000000001002003000040000002000000056000001000370000300800060400000920000600',
 ];
 
 /** Every (step, grid-it-fired-on) pair across the sample solves. */
@@ -68,7 +74,7 @@ describe('explainStep', () => {
     // The registered set is the 28 curriculum techniques, the solver-only ones,
     // and the forcing-chain backstop; every one of them must narrate without
     // hitting the fallback. Bump this when a technique is added.
-    expect(TECHNIQUES.length).toBe(30);
+    expect(TECHNIQUES.length).toBe(36);
   });
 
   it('narrates a promoted user-notes step', () => {
@@ -176,6 +182,7 @@ describe('techniqueName', () => {
     expect(lessonSlugFor('forcing-chain')).toBeNull();
     // Solver-only: named and tiered, but no lesson to link to.
     expect(lessonSlugFor('empty-rectangle')).toBeNull();
+    expect(lessonSlugFor('hidden-rectangle')).toBeNull();
     expect(lessonSlugFor('user-notes')).toBeNull();
   });
 });

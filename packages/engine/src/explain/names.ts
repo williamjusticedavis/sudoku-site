@@ -46,6 +46,12 @@ const NAMES: Record<string, string> = {
   'xy-chain': 'XY-Chain',
   'als-xz': 'ALS-XZ',
   'empty-rectangle': 'Empty Rectangle',
+  'unique-rectangle-2': 'Unique Rectangle Type 2',
+  'unique-rectangle-3': 'Unique Rectangle Type 3',
+  'unique-rectangle-4': 'Unique Rectangle Type 4',
+  'unique-rectangle-5': 'Unique Rectangle Type 5',
+  'unique-rectangle-6': 'Unique Rectangle Type 6',
+  'hidden-rectangle': 'Hidden Rectangle',
   'forcing-chain': 'Forcing Chain',
 };
 
@@ -91,6 +97,12 @@ const TIERS: Record<string, TechniqueTier> = {
   // Solver-only (see `SOLVER_ONLY`): the tier the pattern would sit in if it
   // were taught, so the step list still colours it by difficulty.
   'empty-rectangle': 'advanced',
+  'unique-rectangle-2': 'advanced',
+  'unique-rectangle-3': 'advanced',
+  'unique-rectangle-4': 'advanced',
+  'unique-rectangle-5': 'advanced',
+  'unique-rectangle-6': 'advanced',
+  'hidden-rectangle': 'advanced',
 };
 
 /**
@@ -98,7 +110,15 @@ const TIERS: Record<string, TechniqueTier> = {
  * exist so the solver finds the pattern a human expert would instead of
  * falling back to the forcing-chain guess; the curriculum stays the locked 28.
  */
-const SOLVER_ONLY: ReadonlySet<string> = new Set(['empty-rectangle']);
+const SOLVER_ONLY: ReadonlySet<string> = new Set([
+  'empty-rectangle',
+  'unique-rectangle-2',
+  'unique-rectangle-3',
+  'unique-rectangle-4',
+  'unique-rectangle-5',
+  'unique-rectangle-6',
+  'hidden-rectangle',
+]);
 
 /**
  * The tier a technique is taught in (or, for a solver-only technique, would

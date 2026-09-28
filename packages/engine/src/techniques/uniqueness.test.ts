@@ -6,7 +6,9 @@ import { hasUniqueSolution } from '../validate.js';
 import {
   bug1,
   bug1Candidate,
+  extendedRectangleCandidate,
   uniqueRectangle,
+  uniqueRectangle2,
   uniqueRectangleCandidate,
 } from './uniqueness.js';
 import { loadPuzzles, runFixture } from '../__tests__/oracle.js';
@@ -102,6 +104,89 @@ describe('Unique Rectangle (Type 1)', () => {
   it('does not detect when only two corners share the pair', () => {
     const g = gridWith({ 0: [1, 2], 3: [1, 2], 9: [1, 5], 12: [1, 2, 7] });
     expect(uniqueRectangleCandidate(g)).toBeNull();
+  });
+});
+
+describe('Unique Rectangle Types 2–6 and Hidden Rectangle', () => {
+  // Every case uses the rectangle r1c1, r1c4, r2c1, r2c4 (cells 0, 3, 9, 12,
+  // boxes 1 and 2) on the pair 1/2. Detection is tested without the guard —
+  // these hand-built grids have no givens, so they are never unique.
+  const rest = (cells: number[], digits: Digit[]) =>
+    Object.fromEntries(cells.map((c) => [c, digits])) as Record<CellIndex, Digit[]>;
+
+  it('Type 2: two roof corners sharing a line with the same one extra', () => {
+    // Roof r1c4, r2c4 = {1,2,7}; one of them is 7, so r4c4 (same column) isn't.
+    const g = gridWith({ 0: [1, 2], 9: [1, 2], 3: [1, 2, 7], 12: [1, 2, 7], 30: [7, 8] });
+    const step = extendedRectangleCandidate(g, 'unique-rectangle-2')!;
+    expect(step.technique).toBe('unique-rectangle-2');
+    expect(elimKeys(step)).toEqual(['30:7']);
+  });
+
+  it('Type 5: the same extra on diagonal corners', () => {
+    // Roof r1c4, r2c1 = {1,2,7}; r1c2 sees both (row 1, box 1).
+    const g = gridWith({ 0: [1, 2], 12: [1, 2], 3: [1, 2, 7], 9: [1, 2, 7], 1: [7, 8] });
+    expect(extendedRectangleCandidate(g, 'unique-rectangle-2')).toBeNull();
+    const step = extendedRectangleCandidate(g, 'unique-rectangle-5')!;
+    expect(elimKeys(step)).toEqual(['1:7']);
+  });
+
+  it('Type 3: the roof acts as one cell in a naked pair', () => {
+    // Roof r2c1 {1,2,3} + r2c4 {1,2,4} is a virtual {3,4}; with r2c7 {3,4}
+    // that's a naked pair in row 2, so r2c8 loses its 3.
+    const g = gridWith({
+      ...rest([10, 11, 13, 14, 17], [5, 6, 8, 9]),
+      0: [1, 2],
+      3: [1, 2],
+      9: [1, 2, 3],
+      12: [1, 2, 4],
+      15: [3, 4],
+      16: [3, 5],
+    });
+    const step = extendedRectangleCandidate(g, 'unique-rectangle-3')!;
+    expect(elimKeys(step)).toEqual(['16:3']);
+  });
+
+  it('Type 4: a pair digit locked to the roof removes the other from it', () => {
+    // 1 appears in row 2 only at the roof, so one roof corner is 1 and neither
+    // can be 2. (r2c7 holds a 2, so 2 isn't locked the same way.)
+    const g = gridWith({ 0: [1, 2], 3: [1, 2], 9: [1, 2, 3], 12: [1, 2, 4], 15: [2, 5] });
+    const step = extendedRectangleCandidate(g, 'unique-rectangle-4')!;
+    expect(elimKeys(step)).toEqual(['12:2', '9:2']);
+  });
+
+  it('Type 6: diagonal floor with the digit locked to the rectangle in both rows', () => {
+    // 1 only on the rectangle in rows 1 and 2 → 1 leaves the roof r1c4, r2c1.
+    const g = gridWith({ 0: [1, 2], 12: [1, 2], 3: [1, 2, 5], 9: [1, 2, 6], 5: [2, 7] });
+    const step = extendedRectangleCandidate(g, 'unique-rectangle-6')!;
+    expect(elimKeys(step)).toEqual(['3:1', '9:1']);
+  });
+
+  it('Hidden Rectangle: locked along the far corner’s row and column', () => {
+    // Floor r1c1. Opposite corner r2c4 sees 1 only on the rectangle in row 2
+    // and column 4, so it can't be 2. (r9c4 holds a 2 so 2 isn't locked too.)
+    const g = gridWith({
+      0: [1, 2],
+      3: [1, 2, 6],
+      9: [1, 2, 7],
+      12: [1, 2, 5],
+      75: [2, 8],
+    });
+    const step = extendedRectangleCandidate(g, 'hidden-rectangle')!;
+    expect(elimKeys(step)).toEqual(['12:2']);
+  });
+
+  it('the guard blocks the extended types on a non-unique grid', () => {
+    const g = gridWith({ 0: [1, 2], 9: [1, 2], 3: [1, 2, 7], 12: [1, 2, 7], 30: [7, 8] });
+    expect(extendedRectangleCandidate(g, 'unique-rectangle-2')).not.toBeNull();
+    expect(uniqueRectangle2(g)).toBeNull();
+  });
+
+  it('Type 4 and Hidden Rectangle fire on the hard 17-clue set', () => {
+    const fired = new Set(
+      runFixture('hard17.csv', 50).outcomes.flatMap((o) => o.techniques),
+    );
+    expect(fired.has('unique-rectangle-4')).toBe(true);
+    expect(fired.has('hidden-rectangle')).toBe(true);
   });
 });
 

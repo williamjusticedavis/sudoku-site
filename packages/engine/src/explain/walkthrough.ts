@@ -1039,6 +1039,128 @@ function uniqueRectangleTemplate(step: Step): Beat[] {
   ];
 }
 
+/** Unique Rectangle Types 2–6 and Hidden Rectangle: the same deadly rectangle
+ * as Type 1, kept from settling on its two digits by a different kind of
+ * evidence. The opening two beats are shared; the middle is per type. */
+function extendedRectangleTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
+  const floor = groupCells(step, 'base');
+  const roof = groupCells(step, 'related');
+  const [a, b] = groupDigits(step, 'base') as [number, number];
+  const elim = elimCells(step);
+  const gone = [...new Set(step.eliminations.map((e) => e.digit))];
+  const e = gone[0]!;
+  const other = e === a ? b : a;
+  const all: Role[] = ['base', 'related', 'cover', 'elimination'];
+  const spots = (cs: readonly number[], d: number) =>
+    cs.filter((c) => grid.placed[c] === 0 && hasCand(grid.candidates[c]!, d as Digit))
+      .length;
+
+  const opening: Beat[] = [
+    {
+      text: `${cells([...floor, ...roof].sort((x, y) => x - y))} are the corners of a rectangle across two boxes, and every corner still holds both ${a} and ${b}.`,
+      roles: ['base', 'related'],
+    },
+    {
+      text: `If all four came down to just ${a} and ${b}, the two digits could swap places around the rectangle — a second solution. A proper puzzle has exactly one, so that can't happen.`,
+      roles: ['base', 'related'],
+    },
+  ];
+
+  let middle: Beat[];
+  switch (step.technique) {
+    case 'unique-rectangle-3': {
+      const subset = groupCells(step, 'cover');
+      const union = groupDigits(step, 'cover');
+      const extras = union.filter(
+        (d) =>
+          d !== a &&
+          d !== b &&
+          roof.some((c) => hasCand(grid.candidates[c]!, d as Digit)),
+      );
+      const unit = unitLabel([...roof, ...subset]);
+      middle = [
+        {
+          text: `So at least one of ${cells(roof)} must be ${digitsOr(extras)} — between them they act like a single cell holding ${digits(extras)}.`,
+          roles: ['base', 'related'],
+        },
+        {
+          text: `With ${cells(subset)}, that's ${subset.length + 1} cells in ${unit} sharing just ${digits(union)} — a naked set, so no other cell in ${unit} can take those digits.`,
+          roles: all,
+        },
+      ];
+      break;
+    }
+    case 'unique-rectangle-4': {
+      // The unit where `other` is locked to the two roof corners.
+      const units = [
+        lineCellsOf(roof[0]!, 'row'),
+        lineCellsOf(roof[0]!, 'col'),
+        boxCellsOf(roof[0]!),
+      ].filter((u) => roof.every((c) => u.includes(c)));
+      const unit = units.find((u) => spots(u, other) === 2) ?? units[0]!;
+      middle = [
+        {
+          text: `In ${unitLabel(unit)}, ${other} has only two spots: ${cells(roof)}. One of them is ${other}.`,
+          roles: ['base', 'related'],
+        },
+        {
+          text: `If the other were ${e}, the rectangle would be down to ${a} and ${b} again. So neither can be ${e}.`,
+          roles: all,
+        },
+      ];
+      break;
+    }
+    case 'unique-rectangle-6': {
+      const byRow = floor.every((c) => spots(lineCellsOf(c, 'row'), e) === 2);
+      middle = [
+        {
+          text: `In both ${byRow ? 'rows' : 'columns'} of the rectangle, ${e} appears only at its corners.`,
+          roles: ['base', 'related'],
+        },
+        {
+          text: `If ${cellName(roof[0]!)} were ${e}, ${e} would have to land on ${cellName(roof[1]!)} too, leaving ${cells(floor)} as ${other} — the rectangle again. The same goes the other way round.`,
+          roles: all,
+        },
+      ];
+      break;
+    }
+    case 'hidden-rectangle': {
+      const f = groupCells(step, 'cover')[0]!;
+      const d = elim[0]!;
+      middle = [
+        {
+          text: `Start from ${cellName(f)}, which holds only ${a} and ${b}, and look at the opposite corner, ${cellName(d)}. In its row and in its column, ${other} appears only on the rectangle.`,
+          roles: ['base', 'related', 'cover'],
+        },
+        {
+          text: `If ${cellName(d)} were ${e}, ${other} would have to take both corners beside it, and ${cellName(f)} would be ${e} — the rectangle again.`,
+          roles: all,
+        },
+      ];
+      break;
+    }
+    default: {
+      // Types 2 and 5: the extras are one digit.
+      middle = [
+        {
+          text: `The only other candidate in ${cells(roof)} is ${e}, so to avoid that, one of them must be ${e}.`,
+          roles: ['base', 'related'],
+        },
+        {
+          text: `${cells(elim)} ${elim.length === 1 ? 'sees' : 'see'} all of them, so ${elim.length === 1 ? "it can't" : "they can't"} be ${e}.`,
+          roles: all,
+        },
+      ];
+    }
+  }
+
+  return [
+    ...opening,
+    ...middle,
+    { text: `Remove ${digits(gone)} from ${cells(elim)}.`, roles: all },
+  ];
+}
+
 /** Empty Rectangle: a box whose candidates form a row-and-column cross, plus
  * one strong link that lines up with an arm of the cross. */
 function emptyRectangleTemplate(step: Step): Beat[] {
@@ -1281,6 +1403,12 @@ const BY_SLUG: Record<string, Template> = {
   'simple-coloring': coloringTemplate,
   'als-xz': alsXzTemplate,
   'empty-rectangle': emptyRectangleTemplate,
+  'unique-rectangle-2': extendedRectangleTemplate,
+  'unique-rectangle-3': extendedRectangleTemplate,
+  'unique-rectangle-4': extendedRectangleTemplate,
+  'unique-rectangle-5': extendedRectangleTemplate,
+  'unique-rectangle-6': extendedRectangleTemplate,
+  'hidden-rectangle': extendedRectangleTemplate,
   // Solver-only ids: no lesson of their own, but the solver page narrates
   // every step it applies, so each still needs a template. `hidden-single` is
   // what Cross-Hatching / Last Possible Number are called by the engine, and

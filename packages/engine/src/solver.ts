@@ -44,7 +44,16 @@ import {
 } from './techniques/chains.js';
 import { simpleColoring } from './techniques/coloring.js';
 import { wWing, xyWing, xyzWing } from './techniques/wings.js';
-import { bug1, uniqueRectangle } from './techniques/uniqueness.js';
+import {
+  bug1,
+  hiddenRectangle,
+  uniqueRectangle,
+  uniqueRectangle2,
+  uniqueRectangle3,
+  uniqueRectangle4,
+  uniqueRectangle5,
+  uniqueRectangle6,
+} from './techniques/uniqueness.js';
 import { xyChain } from './techniques/xychain.js';
 import { alsXz } from './techniques/als.js';
 import { makeForcingChain } from './techniques/forcing.js';
@@ -77,7 +86,8 @@ import { makeForcingChain } from './techniques/forcing.js';
  *     explain/names.ts). They're here so a hard grid gets the pattern an
  *     expert would spot rather than the forcing-chain guess, and they sit in
  *     the tier they'd be taught in if they were — Empty Rectangle is a grouped
- *     Turbot Fish, so it follows Turbot Fish.
+ *     Turbot Fish, so it follows Turbot Fish, and the other Unique Rectangle
+ *     types follow Type 1 (the naked-subset Type 3 after the one-link Type 4).
  *
  * Reordering this list is not a local change: `packages/db/src/seed.ts` builds
  * each lesson's lead-up from `TECHNIQUES` minus the target, so the order
@@ -112,6 +122,12 @@ export const PATTERN_TECHNIQUES: Technique[] = [
   finnedXWing,
   finnedSwordfish,
   uniqueRectangle,
+  uniqueRectangle2,
+  uniqueRectangle4,
+  uniqueRectangle3,
+  uniqueRectangle5,
+  uniqueRectangle6,
+  hiddenRectangle,
   // Master
   jellyfish,
   finnedJellyfish,
