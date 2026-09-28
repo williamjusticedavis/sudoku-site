@@ -58,7 +58,7 @@ import { xyChain } from './techniques/xychain.js';
 import { alsXz } from './techniques/als.js';
 import { makeForcingChain } from './techniques/forcing.js';
 import { tridagon } from './techniques/tridagon.js';
-import { aic, xChain } from './techniques/aic.js';
+import { aic, alsAic, groupedAic, xChain } from './techniques/aic.js';
 
 /**
  * Pattern techniques in difficulty order — the order the solver walks, and so
@@ -93,8 +93,9 @@ import { aic, xChain } from './techniques/aic.js';
  *     WXYZ-Wing is the four-cell special case of ALS-XZ, so it goes just
  *     before ALS-XZ and claims those steps under the more findable name.
  *     X-Chain (one digit) follows Simple Coloring; the general AIC comes after
- *     ALS-XZ, where SudokuWiki ranks it. Tridagon comes last: it is rare and
- *     no chain of up to 13 links reaches the positions where it applies.
+ *     ALS-XZ, where SudokuWiki ranks it, then chains through box-line groups.
+ *     Tridagon is one fixed shape, so it goes before the last and hardest
+ *     thing to see, chains that pass through Almost Locked Sets.
  *
  * Reordering this list is not a local change: `packages/db/src/seed.ts` builds
  * each lesson's lead-up from `TECHNIQUES` minus the target, so the order
@@ -144,7 +145,9 @@ export const PATTERN_TECHNIQUES: Technique[] = [
   wxyzWing,
   alsXz,
   aic,
+  groupedAic,
   tridagon,
+  alsAic,
 ];
 
 /**

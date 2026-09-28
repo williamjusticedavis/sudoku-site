@@ -36,18 +36,18 @@ import { combinations } from './util.js';
 /** Largest ALS (in cells) to enumerate. 4 covers the common ALS-XZ patterns. */
 const MAX_ALS = 4;
 
-interface Als {
+export interface Als {
   readonly cells: readonly CellIndex[];
   readonly mask: number; // union of candidates (popcount === cells.length + 1)
 }
 
-/** All ALSs (size 1..MAX_ALS) across every unit. */
-function enumerateAls(grid: Grid): Als[] {
+/** All ALSs (size 1..maxSize) across every unit. */
+export function enumerateAls(grid: Grid, maxSize = MAX_ALS): Als[] {
   const out: Als[] = [];
   const seen = new Set<string>(); // dedupe identical cell-sets from overlapping units
   for (const unit of UNITS) {
     const empties = unit.cells.filter((c) => grid.placed[c] === 0);
-    for (let size = 1; size <= Math.min(MAX_ALS, empties.length); size++) {
+    for (let size = 1; size <= Math.min(maxSize, empties.length); size++) {
       for (const combo of combinations(empties.length, size)) {
         const cells = combo.map((i) => empties[i]!);
         let mask = 0;

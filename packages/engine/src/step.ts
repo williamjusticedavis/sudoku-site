@@ -63,6 +63,7 @@ export type TechniqueId =
   | 'xy-chain'
   | 'x-chain'
   | 'aic'
+  | 'als-chain'
   | 'als-xz'
   | 'tridagon'
   | 'forcing-chain'

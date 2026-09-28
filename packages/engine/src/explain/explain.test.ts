@@ -78,7 +78,7 @@ describe('explainStep', () => {
     // The registered set is the 28 curriculum techniques, the solver-only ones,
     // and the forcing-chain backstop; every one of them must narrate without
     // hitting the fallback. Bump this when a technique is added.
-    expect(TECHNIQUES.length).toBe(40);
+    expect(TECHNIQUES.length).toBe(42);
   });
 
   it('narrates a promoted user-notes step', () => {

@@ -56,6 +56,7 @@ const NAMES: Record<string, string> = {
   tridagon: 'Tridagon',
   'x-chain': 'X-Chain',
   aic: 'Alternating Inference Chain',
+  'als-chain': 'ALS Chain',
   'forcing-chain': 'Forcing Chain',
 };
 
@@ -111,6 +112,7 @@ const TIERS: Record<string, TechniqueTier> = {
   tridagon: 'master',
   'x-chain': 'master',
   aic: 'master',
+  'als-chain': 'master',
 };
 
 /**
@@ -130,6 +132,7 @@ const SOLVER_ONLY: ReadonlySet<string> = new Set([
   'tridagon',
   'x-chain',
   'aic',
+  'als-chain',
 ]);
 
 /**

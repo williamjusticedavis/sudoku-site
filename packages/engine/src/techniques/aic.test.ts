@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGrid, type CellIndex, type Digit, type Grid } from '../grid.js';
 import type { Step } from '../step.js';
-import { aic, xChain } from './aic.js';
+import { aic, groupedAic, xChain } from './aic.js';
 import { runFixture } from '../__tests__/oracle.js';
 
 function gridWith(cands: Record<CellIndex, Digit[]>): Grid {
@@ -53,12 +53,32 @@ describe('aic (white-box)', () => {
   });
 });
 
+describe('grouped nodes', () => {
+  it('shorten a chain through a box-line group', () => {
+    // Row 1 holds 1 at r1c1, r1c8 and r1c9 (no plain strong link there), and
+    // box 3 holds it in column 9 only (r1c9/r2c9, a group). The shortest chain
+    // uses that group: (1)r1c1 = r5c1 - r5c9 = r1c9/r2c9, clearing r1c8.
+    const g = gridWith({
+      0: [1, 5],
+      7: [1, 5],
+      8: [1, 5],
+      17: [1, 6],
+      44: [1, 6],
+      36: [1, 7],
+    });
+    const step = groupedAic(g)!;
+    expect(step.description).toContain('(1)r1c9/r2c9');
+    expect(elimKeys(step)).toEqual(['7:1']);
+  });
+});
+
 describe('chains on real puzzles', () => {
-  it('X-Chain and AIC both fire on the hard 17-clue set', () => {
+  it('X-Chain, AIC and ALS Chain all fire on the hard 17-clue set', () => {
     const fired = new Set(
-      runFixture('hard17.csv', 30).outcomes.flatMap((o) => o.techniques),
+      runFixture('hard17.csv', 60).outcomes.flatMap((o) => o.techniques),
     );
-    expect(fired.has('aic')).toBe(true);
     expect(fired.has('x-chain')).toBe(true);
+    expect(fired.has('aic')).toBe(true);
+    expect(fired.has('als-chain')).toBe(true);
   });
 });

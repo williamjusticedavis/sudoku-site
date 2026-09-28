@@ -1045,17 +1045,24 @@ function uniqueRectangleTemplate(step: Step): Beat[] {
 function chainTemplate(step: Step): Beat[] {
   const nodes = step.highlights
     .filter((g) => g.role === 'base' || g.role === 'related')
-    .map((g) => ({ cell: g.cells[0]!, digit: g.digits![0]! }));
+    .map((g) => ({ cells: g.cells, digit: g.digits![0]! }));
   const first = nodes[0]!;
   const last = nodes[nodes.length - 1]!;
-  const say = (n: { cell: number; digit: number }, isTrue: boolean) =>
-    `${cellName(n.cell)} ${isTrue ? 'is' : "isn't"} ${n.digit}`;
+  type ChainNode = (typeof nodes)[number];
+  const where = (n: ChainNode) => n.cells.map(cellName);
+  // A single cell "is"/"isn't" the digit; a group has it in one of its cells, or in none.
+  const say = (n: ChainNode, isTrue: boolean) =>
+    n.cells.length === 1
+      ? `${where(n)[0]} ${isTrue ? 'is' : "isn't"} ${n.digit}`
+      : isTrue
+        ? `one of ${joinWith(where(n), 'or')} is ${n.digit}`
+        : `none of ${joinWith(where(n), 'or')} is ${n.digit}`;
   // Link i joins node i and i+1: strong (solid) when i is even.
   const xLines = nodes
     .slice(0, -1)
     .map((n, i) => ({
-      from: n.cell,
-      to: nodes[i + 1]!.cell,
+      from: n.cells[0]!,
+      to: nodes[i + 1]!.cells[0]!,
       style: i % 2 === 0 ? ('solid' as const) : ('dashed' as const),
     }))
     .filter((l) => l.from !== l.to);
@@ -1064,25 +1071,27 @@ function chainTemplate(step: Step): Beat[] {
     .slice(1)
     .map((n, i) => say(n, i % 2 === 0))
     .join(', so ');
+  const alsNote =
+    step.technique === 'als-chain'
+      ? ' Where the chain jumps from one digit to another across a group of cells, those cells are an Almost Locked Set — one more digit than cells — so once one digit is ruled out of them, every other digit they hold has to be in them.'
+      : '';
 
   const place = step.placements[0];
   const elim = elimCells(step);
   const gone = [...new Set(step.eliminations.map((e) => e.digit))];
+  const cant = step.eliminations.map((e) => `${cellName(e.cell)} can't be ${e.digit}`);
   let why: string;
   if (place) {
     why = `The chain comes back to where it started: supposing ${say(first, false)} forces it to be ${first.digit}. So it is.`;
   } else if (first.digit === last.digit) {
-    why = `Either way round, ${cellName(first.cell)} or ${cellName(last.cell)} is ${first.digit}. So ${cells(elim)}, which ${elim.length === 1 ? 'sees' : 'see'} both, can't be ${first.digit}.`;
-  } else if (first.cell === last.cell) {
-    why = `Either way round, ${cellName(first.cell)} is ${first.digit} or ${last.digit}, so nothing else fits there.`;
+    why = `Either way round, ${say(first, true)} or ${say(last, true)}. So ${cells(elim)}, which ${elim.length === 1 ? 'sees' : 'see'} all of those cells, can't be ${first.digit}.`;
   } else {
-    const cant = step.eliminations.map((e) => `${cellName(e.cell)} can't be ${e.digit}`);
-    why = `Either way round, ${say(first, true)} or ${say(last, true)}. They see each other, so ${joinWith(cant, 'and')}.`;
+    why = `Either way round, ${say(first, true)} or ${say(last, true)}. So ${joinWith(cant, 'and')} — ${cant.length === 1 ? 'that' : 'each'} would rule out both ends at once.`;
   }
 
   return [
     {
-      text: `Follow a chain of candidates from ${cellName(first.cell)} to ${cellName(last.cell)}. A solid line means at least one of its two ends is true; a dashed line means at most one is.`,
+      text: `Follow a chain of candidates from ${where(first).join('/')} to ${where(last).join('/')}. A solid line means at least one of its two ends is true; a dashed line means at most one is.${alsNote}`,
       roles: shown,
       xLines,
     },
@@ -1562,6 +1571,7 @@ const BY_SLUG: Record<string, Template> = {
   tridagon: tridagonTemplate,
   'x-chain': chainTemplate,
   aic: chainTemplate,
+  'als-chain': chainTemplate,
   // Solver-only ids: no lesson of their own, but the solver page narrates
   // every step it applies, so each still needs a template. `hidden-single` is
   // what Cross-Hatching / Last Possible Number are called by the engine, and
