@@ -141,6 +141,11 @@ const SOLVER_ONLY: ReadonlySet<string> = new Set([
   'sue-de-coq',
 ]);
 
+/** Is this one of the solver-only techniques (no lesson, not curriculum)? */
+export function isSolverOnly(id: TechniqueId): boolean {
+  return SOLVER_ONLY.has(id);
+}
+
 /**
  * The tier a technique is taught in (or, for a solver-only technique, would
  * be), or null for the ids that aren't patterns: the forcing-chain backstop (a guided guess-and-check, not a

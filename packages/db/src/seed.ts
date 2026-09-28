@@ -26,13 +26,15 @@ import { eq } from 'drizzle-orm';
 import {
   cloneGrid,
   hint,
+  isSolverOnly,
+  makeForcingChain,
+  PATTERN_TECHNIQUES,
   parseBoard,
   serializeGrid,
   serializeGridWithCandidates,
   hasUniqueSolution,
   solve,
   solveAll,
-  TECHNIQUES,
   type Step,
   type Technique,
   bug1,
@@ -634,6 +636,22 @@ function excluded(slug: string, target: Technique): Technique[] {
 
 type Fired = { step: Step; gridBefore: string | undefined };
 
+/** A lesson's lead-up plays only curriculum techniques. The solver-only ones
+ * (see `isSolverOnly`) exist to spare the solver page a forcing-chain guess;
+ * letting them into a lead-up would reshape — or, for BUG+1, dissolve — the
+ * position a lesson was curated to show. */
+function curriculumOnly(t: Technique): Technique {
+  return (grid) => {
+    const step = t(grid);
+    return step && isSolverOnly(step.technique) ? null : step;
+  };
+}
+
+/** The lead-up's forcing-chain backstop, testing each guess with curriculum
+ * techniques only — the solver's own backstop tests with every technique, so
+ * it can reach a contradiction in a different cell and move the lesson. */
+const curriculumForcingChain = makeForcingChain(PATTERN_TECHNIQUES.map(curriculumOnly));
+
 /** Capture `target`'s Step on `puzzle`: apply lead-up moves (the full solver
  * minus the target) until the target fires, and store the exact candidate state
  * it fired on. `gridBefore` is undefined only when the target fired on the raw
@@ -645,7 +663,10 @@ type Fired = { step: Step; gridBefore: string | undefined };
  * justifying the exact same elimination either. */
 function fireTarget(puzzle: string, slug: string, target: Technique): Fired | null {
   const excl = excluded(slug, target);
-  const leadUp = TECHNIQUES.filter((t) => !excl.includes(t));
+  const leadUp = [
+    ...PATTERN_TECHNIQUES.filter((t) => !excl.includes(t)).map(curriculumOnly),
+    curriculumForcingChain,
+  ];
   const grid = parseBoard(puzzle);
   for (let i = 0; i < 400; i++) {
     const step = target(grid);
