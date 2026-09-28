@@ -43,3 +43,23 @@ vendored value — tying the two independent solvers together.
 | `ywing.csv`, `xyzwing.csv`, `wxyzwing.csv`                           |    4, 6, 1 | wings                                   |
 | `bug.csv`                                                            |          7 | BUG+1                                   |
 | `diabolical1.csv`, `diabolical2.csv`                                 |       1, 2 | hard, mixed techniques                  |
+| `hard17.csv`                                                         |        552 | backstop-rate tracking (see below)      |
+| `tridagon.csv`                                                       |          1 | Tridagon (see below)                    |
+
+## Hard sets
+
+`hard17.csv` is **mined, not hand-picked**: every puzzle in KyleGough's full
+49,158-puzzle `17clue.csv` was run through the solver as it stood on 2026-09-28,
+and the 552 that needed the forcing-chain backstop at least once were kept. It
+exists to measure how often the solver still has to guess — `pnpm backstop`
+reports that per fixture. Because of how it was selected, its backstop count
+should only go down, and puzzles stay in it when a new technique
+starts solving them. Solutions were generated with the engine's brute-force
+`solve` (`src/validate.ts` — plain backtracking, independent of the technique
+solver) after `hasUniqueSolution` confirmed each is unique.
+
+`tridagon.csv` is "Sign" by **Pretzaal**, as featured by the Smart Hobbies
+YouTube channel ("This AMAZING Trick Can Solve Extreme Sudoku"). After the
+opening singles it reaches a Tridagon (Thor's Hammer) — twelve {1,2,3} cells
+across boxes 1, 3, 4 and 6 with a single guardian candidate. Solution generated
+the same way as `hard17.csv`.

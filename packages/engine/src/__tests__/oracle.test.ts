@@ -11,6 +11,9 @@ const SOLUTION =
 const BROAD = '17clue_100subset.csv';
 // Every vendored fixture — the consistency invariant runs over all of them.
 const ALL_FIXTURES = listFixtureFiles();
+// All 552 of hard17 take ~50s, most of it in the forcing-chain backstop, so the
+// test checks a fixed prefix. `pnpm backstop` runs the whole file.
+const SAMPLED: Record<string, number> = { 'hard17.csv': 100 };
 
 describe('brute-force oracle (validate.solve)', () => {
   it('solves the classic puzzle to its known solution', () => {
@@ -48,9 +51,9 @@ describe('vendored fixture solutions are trustworthy', () => {
 describe('technique solver vs oracle — consistency invariant', () => {
   // The load-bearing test as techniques grow: the solver may not finish a
   // puzzle, but it must NEVER place a digit that disagrees with the unique
-  // solution. A buggy elimination in any future technique trips this.
-  it.each(ALL_FIXTURES)('never places a wrong digit in %s', (file) => {
-    const summary = runFixture(file);
+  // solution, nor eliminate one that belongs. A buggy technique trips this.
+  it.each(ALL_FIXTURES)('never places or eliminates wrongly in %s', (file) => {
+    const summary = runFixture(file, SAMPLED[file]);
     expect(summary.wrong).toEqual([]);
     if (file === BROAD) {
       console.log(

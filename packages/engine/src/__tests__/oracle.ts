@@ -9,8 +9,10 @@
  *
  * The core invariant every fixture run asserts is *consistency*: the technique
  * solver may leave a puzzle unsolved (a technique isn't implemented yet), but it
- * must NEVER place a digit that disagrees with the unique solution. A wrong
- * elimination in some future technique surfaces here as a mismatched cell.
+ * must NEVER place a digit that disagrees with the unique solution, and no step
+ * may eliminate the digit that belongs in a cell. The elimination check is the
+ * one that matters for a buggy technique: a wrongly removed digit usually just
+ * leaves the puzzle stuck, which a placement-only check would wave through.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
@@ -70,6 +72,12 @@ export interface OracleOutcome {
   readonly solved: boolean;
   /** A cell the solver placed that disagrees with the oracle, or null. */
   readonly wrongCell: number | null;
+  /** The first step that eliminated a cell's solution digit, or null. */
+  readonly wrongElimination: {
+    technique: TechniqueId;
+    cell: number;
+    digit: number;
+  } | null;
   /** Technique ids the solver applied, in order. */
   readonly techniques: readonly TechniqueId[];
 }
@@ -88,11 +96,21 @@ export function checkAgainstOracle(pair: PuzzlePair): OracleOutcome {
     }
   }
 
+  let wrongElimination: OracleOutcome['wrongElimination'] = null;
+  for (const step of result.steps) {
+    const bad = step.eliminations.find((e) => String(e.digit) === pair.solution[e.cell]);
+    if (bad) {
+      wrongElimination = { technique: step.technique, cell: bad.cell, digit: bad.digit };
+      break;
+    }
+  }
+
   return {
     puzzle: pair.puzzle,
     status: result.status,
     solved: result.status === 'solved' && serializeGrid(grid) === pair.solution,
     wrongCell,
+    wrongElimination,
     techniques: result.steps.map((s) => s.technique),
   };
 }
@@ -104,12 +122,14 @@ export interface FixtureSummary {
   readonly outcomes: OracleOutcome[];
 }
 
-export function runFixture(file: string): FixtureSummary {
-  const outcomes = loadPairs(file).map(checkAgainstOracle);
+/** `limit` checks only the first N puzzles — for fixtures too slow to run whole
+ * on every test run (the backstop report still covers all of them). */
+export function runFixture(file: string, limit?: number): FixtureSummary {
+  const outcomes = loadPairs(file).slice(0, limit).map(checkAgainstOracle);
   return {
     total: outcomes.length,
     solved: outcomes.filter((o) => o.solved).length,
-    wrong: outcomes.filter((o) => o.wrongCell !== null),
+    wrong: outcomes.filter((o) => o.wrongCell !== null || o.wrongElimination !== null),
     outcomes,
   };
 }
