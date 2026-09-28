@@ -282,7 +282,10 @@ and see if it breaks". They are listed in `SOLVER_ONLY` in
 `packages/engine/src/explain/names.ts`. They get a display name and a tier,
 so the step list colours them by difficulty, but `lessonSlugFor` returns
 null so the solver never links to a lesson that doesn't exist. The curriculum
-stays the locked 28. Progress is measured with `pnpm -C packages/engine backstop`
+stays the locked 28. They never shape Learn content: the seed's lesson
+lead-ups filter them out (and use a backstop that propagates with curriculum
+techniques only), so adding or reordering a solver-only technique leaves every
+lesson position unchanged. Progress is measured with `pnpm -C packages/engine backstop`
 over `tests/fixtures/hard17.csv` (see its PROVENANCE entry). Add further
 techniques by what that report says still reaches the backstop.
 
