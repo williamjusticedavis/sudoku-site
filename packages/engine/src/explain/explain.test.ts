@@ -20,6 +20,8 @@ const PUZZLES = [
   '000004700500370060230000004700030840000401000084060003300000059070093002006200000',
   // Tridagon (tridagon.csv — Pretzaal's "Sign").
   '605004790080000064070900508904000086700000005058000000006008007000150000000020040',
+  // Death Blossom.
+  '000000001000000020003045000000000300010000000260007000000002460008000070100900000',
   // A continuous-loop X-Chain.
   '000000000000000012000034000000000305002000000006780000000109060030000000450200000',
   // Unique Rectangle Types 2, 3, 4 and 6, and Hidden Rectangle.
@@ -80,7 +82,7 @@ describe('explainStep', () => {
     // The registered set is the 28 curriculum techniques, the solver-only ones,
     // and the forcing-chain backstop; every one of them must narrate without
     // hitting the fallback. Bump this when a technique is added.
-    expect(TECHNIQUES.length).toBe(42);
+    expect(TECHNIQUES.length).toBe(43);
   });
 
   it('narrates a promoted user-notes step', () => {

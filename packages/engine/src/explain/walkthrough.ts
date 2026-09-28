@@ -1146,6 +1146,36 @@ function chainTemplate(step: Step): Beat[] {
   ];
 }
 
+/** Death Blossom: a stem cell whose every candidate feeds one ALS petal. */
+function deathBlossomTemplate(step: Step): Beat[] {
+  const stem = groupCells(step, 'base')[0]!;
+  const stemDigits = groupDigits(step, 'base');
+  const petals = step.highlights.filter((g) => g.role === 'cover');
+  const z = elimDigit(step);
+  const elim = elimCells(step);
+  const listed = petals.map((p) => `for ${p.digits![0]}, ${cells(p.cells)}`);
+  const all: Role[] = ['base', 'cover', 'elimination'];
+  return [
+    {
+      text: `${cellName(stem)} can only be ${digitsOr(stemDigits)}.`,
+      roles: ['base'],
+    },
+    {
+      text: `For each of those digits there's a petal — a group of cells holding one more digit than it has cells — whose copies of that digit all see ${cellName(stem)}: ${listed.join('; ')}.`,
+      roles: ['base', 'cover'],
+    },
+    {
+      text: `Whatever ${cellName(stem)} turns out to be, the matching petal loses that digit and locks onto the rest. Every petal holds ${z}, so ${z} ends up in one of them either way.`,
+      roles: ['base', 'cover'],
+    },
+    {
+      text: `${cells(elim)} ${elim.length === 1 ? 'sees' : 'see'} every ${z} in the petals, so ${elim.length === 1 ? "it can't" : "they can't"} be ${z}.`,
+      roles: all,
+    },
+    { text: `Remove ${z} from ${cells(elim)}.`, roles: all },
+  ];
+}
+
 /** Tridagon: twelve cells on three digits that no arrangement can fill. */
 function tridagonTemplate(step: Step): Beat[] {
   const pattern = groupCells(step, 'base');
@@ -1607,6 +1637,7 @@ const BY_SLUG: Record<string, Template> = {
   'x-chain': chainTemplate,
   aic: chainTemplate,
   'als-chain': chainTemplate,
+  'death-blossom': deathBlossomTemplate,
   // Solver-only ids: no lesson of their own, but the solver page narrates
   // every step it applies, so each still needs a template. `hidden-single` is
   // what Cross-Hatching / Last Possible Number are called by the engine, and

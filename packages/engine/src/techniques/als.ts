@@ -29,7 +29,7 @@ import {
   type Digit,
   type Grid,
 } from '../grid.js';
-import { UNITS, commonPeers } from '../units.js';
+import { UNITS, commonPeers, sees } from '../units.js';
 import { makeStep, type Elimination, type Step, type Technique } from '../step.js';
 import { combinations } from './util.js';
 
@@ -133,3 +133,89 @@ export const alsXz: Technique = (grid: Grid): Step | null => {
   }
   return null;
 };
+
+/**
+ * Death Blossom — a "stem" cell with one ALS "petal" per candidate.
+ *
+ * For each candidate d of the stem there is an ALS (not containing the stem)
+ * in which every cell holding d sees the stem, and the petals share no cells.
+ * Whichever digit the stem turns out to be, the matching petal loses it and
+ * locks onto its other digits. If every petal holds some digit z the stem
+ * doesn't, z is therefore in one of the petals whatever happens, and it
+ * leaves every cell that sees all the petals' z cells.
+ */
+export const deathBlossom: Technique = (grid: Grid): Step | null => {
+  const list = enumerateAls(grid).filter((a) => a.cells.length >= 2);
+
+  for (let stem = 0; stem < 81; stem++) {
+    if (grid.placed[stem] !== 0) continue;
+    const stemDigits = candList(grid.candidates[stem]!);
+    if (stemDigits.length < 2 || stemDigits.length > 3) continue;
+
+    // Petals available for each stem digit.
+    const options = stemDigits.map((d) =>
+      list.filter(
+        (a) =>
+          !a.cells.includes(stem) &&
+          (a.mask & (1 << (d - 1))) !== 0 &&
+          cellsWith(grid, a, d).every((c) => sees(c, stem)),
+      ),
+    );
+    if (options.some((o) => o.length === 0)) continue;
+
+    const chosen: Als[] = [];
+    const tryPetals = (i: number): Step | null => {
+      if (i === stemDigits.length) return bloom(grid, stem, stemDigits, chosen);
+      for (const petal of options[i]!) {
+        if (chosen.some((p) => p.cells.some((c) => petal.cells.includes(c)))) continue;
+        chosen.push(petal);
+        const step = tryPetals(i + 1);
+        chosen.pop();
+        if (step) return step;
+      }
+      return null;
+    };
+    const step = tryPetals(0);
+    if (step) return step;
+  }
+  return null;
+};
+
+function bloom(
+  grid: Grid,
+  stem: CellIndex,
+  stemDigits: Digit[],
+  petals: Als[],
+): Step | null {
+  const shared = petals.reduce((m, p) => m & p.mask, 0x1ff) & ~grid.candidates[stem]!;
+  for (const z of candList(shared)) {
+    const zCells = petals.flatMap((p) => cellsWith(grid, p, z));
+    const inPattern = new Set([stem, ...petals.flatMap((p) => p.cells)]);
+    const targets = commonPeers(zCells).filter(
+      (c) => !inPattern.has(c) && grid.placed[c] === 0 && hasCand(grid.candidates[c]!, z),
+    );
+    if (targets.length === 0) continue;
+    const eliminations: Elimination[] = targets.map((cell) => ({ cell, digit: z }));
+    return makeStep({
+      technique: 'death-blossom',
+      eliminations,
+      highlights: [
+        { role: 'base', cells: [stem], digits: stemDigits },
+        ...petals.map((p, i) => ({
+          role: 'cover' as const,
+          cells: [...p.cells],
+          digits: [stemDigits[i]!, z],
+        })),
+        { role: 'elimination', cells: targets, digits: [z] },
+      ],
+      description: `Death Blossom: stem ${cellName(stem)} (${stemDigits.join(
+        '/',
+      )}) with petals ${petals
+        .map((p, i) => `${stemDigits[i]}: ${p.cells.map(cellName).join('/')}`)
+        .join('; ')} → ${z} is in a petal either way → eliminate ${z} from ${targets
+        .map(cellName)
+        .join(', ')}.`,
+    });
+  }
+  return null;
+}

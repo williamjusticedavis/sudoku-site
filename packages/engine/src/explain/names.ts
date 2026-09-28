@@ -57,6 +57,7 @@ const NAMES: Record<string, string> = {
   'x-chain': 'X-Chain',
   aic: 'Alternating Inference Chain',
   'als-chain': 'ALS Chain',
+  'death-blossom': 'Death Blossom',
   'forcing-chain': 'Forcing Chain',
 };
 
@@ -113,6 +114,7 @@ const TIERS: Record<string, TechniqueTier> = {
   'x-chain': 'master',
   aic: 'master',
   'als-chain': 'master',
+  'death-blossom': 'master',
 };
 
 /**
@@ -133,6 +135,7 @@ const SOLVER_ONLY: ReadonlySet<string> = new Set([
   'x-chain',
   'aic',
   'als-chain',
+  'death-blossom',
 ]);
 
 /**

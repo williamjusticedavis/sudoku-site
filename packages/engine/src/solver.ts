@@ -55,7 +55,7 @@ import {
   uniqueRectangle6,
 } from './techniques/uniqueness.js';
 import { xyChain } from './techniques/xychain.js';
-import { alsXz } from './techniques/als.js';
+import { alsXz, deathBlossom } from './techniques/als.js';
 import { makeForcingChain } from './techniques/forcing.js';
 import { tridagon } from './techniques/tridagon.js';
 import { aic, alsAic, groupedAic, xChain } from './techniques/aic.js';
@@ -95,7 +95,8 @@ import { aic, alsAic, groupedAic, xChain } from './techniques/aic.js';
  *     X-Chain (one digit) follows Simple Coloring; the general AIC comes after
  *     ALS-XZ, where SudokuWiki ranks it, then chains through box-line groups.
  *     Tridagon is one fixed shape, so it goes before the last and hardest
- *     thing to see, chains that pass through Almost Locked Sets.
+ *     things to see: Death Blossom, then chains that pass through Almost
+ *     Locked Sets.
  *
  * Reordering this list is not a local change: `packages/db/src/seed.ts` builds
  * each lesson's lead-up from `TECHNIQUES` minus the target, so the order
@@ -147,6 +148,7 @@ export const PATTERN_TECHNIQUES: Technique[] = [
   aic,
   groupedAic,
   tridagon,
+  deathBlossom,
   alsAic,
 ];
 

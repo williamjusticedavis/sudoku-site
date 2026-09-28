@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { emptyGrid, type CellIndex, type Digit, type Grid } from '../grid.js';
 import type { Step } from '../step.js';
 import { alsXz } from './als.js';
-import { runFixture } from '../__tests__/oracle.js';
+import { checkAgainstOracle, runFixture } from '../__tests__/oracle.js';
+import { parseGrid, serializeGrid } from '../candidates.js';
+import { solve } from '../validate.js';
+
+const solutionOf = (puzzle: string) => serializeGrid(solve(parseGrid(puzzle))!);
 
 function gridWith(cands: Record<CellIndex, Digit[]>): Grid {
   const g = emptyGrid();
@@ -53,5 +57,17 @@ describe('ALS keeps the broad solve-rate and never places a wrong digit', () => 
     expect(summary.wrong).toEqual([]);
     expect(summary.solved).toBeGreaterThanOrEqual(94);
     console.log(`[als] 17clue_100subset: solved ${summary.solved}/100`);
+  });
+});
+
+describe('deathBlossom on a real puzzle', () => {
+  it('fires on a hard 17-clue puzzle and the solve stays sound', () => {
+    // From hard17.csv; the solver needs a Death Blossom partway through.
+    const puzzle =
+      '000000001000000020003045000000000300010000000260007000000002460008000070100900000';
+    const outcome = checkAgainstOracle({ puzzle, solution: solutionOf(puzzle) });
+    expect(outcome.techniques).toContain('death-blossom');
+    expect(outcome.wrongElimination).toBeNull();
+    expect(outcome.solved).toBe(true);
   });
 });
