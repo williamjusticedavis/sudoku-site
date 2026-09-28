@@ -1176,6 +1176,45 @@ function deathBlossomTemplate(step: Step): Beat[] {
   ];
 }
 
+/** Sue de Coq: a box-line intersection shared out between a line set and a
+ * box set, so every digit involved is used exactly once. */
+function sueDeCoqTemplate(step: Step): Beat[] {
+  const core = groupCells(step, 'base');
+  const v = groupDigits(step, 'base');
+  const a = groupCells(step, 'related');
+  const aDigits = groupDigits(step, 'related');
+  const b = groupCells(step, 'cover');
+  const bDigits = groupDigits(step, 'cover');
+  const line = unitLabel([...core, ...a]);
+  const box = unitLabel([...core, ...b]);
+  const n = core.length + a.length + b.length;
+  const elim = elimCells(step);
+  const all: Role[] = ['base', 'related', 'cover', 'elimination'];
+  const cant = [...new Set(step.eliminations.map((e) => e.digit))];
+  return [
+    {
+      text: `${cells(core)}, where ${box} meets ${line}, hold ${digits(v)} — more digits than cells.`,
+      roles: ['base'],
+    },
+    {
+      text: `Add ${cells(a)} from ${line} (${digits(aDigits)}) and ${cells(b)} from ${box} (${digits(bDigits)}). The two sets share no digit, and all ${n} cells together hold exactly ${n} digits.`,
+      roles: ['base', 'related', 'cover'],
+    },
+    {
+      text: `A digit from the ${line} set can only go in ${line}, one from the ${box} set only in ${box}, and anything else only where they cross. None can repeat, so each of the ${n} digits is used exactly once among these cells.`,
+      roles: ['base', 'related', 'cover'],
+    },
+    {
+      text: `That leaves no room for them anywhere else in ${line} or ${box}: ${cells(elim)} lose ${digits(cant)}.`,
+      roles: all,
+    },
+    {
+      text: `Remove ${step.eliminations.map((e) => `${e.digit} from ${cellName(e.cell)}`).join(', ')}.`,
+      roles: all,
+    },
+  ];
+}
+
 /** Tridagon: twelve cells on three digits that no arrangement can fill. */
 function tridagonTemplate(step: Step): Beat[] {
   const pattern = groupCells(step, 'base');
@@ -1638,6 +1677,7 @@ const BY_SLUG: Record<string, Template> = {
   aic: chainTemplate,
   'als-chain': chainTemplate,
   'death-blossom': deathBlossomTemplate,
+  'sue-de-coq': sueDeCoqTemplate,
   // Solver-only ids: no lesson of their own, but the solver page narrates
   // every step it applies, so each still needs a template. `hidden-single` is
   // what Cross-Hatching / Last Possible Number are called by the engine, and

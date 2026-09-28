@@ -58,6 +58,7 @@ import { xyChain } from './techniques/xychain.js';
 import { alsXz, deathBlossom } from './techniques/als.js';
 import { makeForcingChain } from './techniques/forcing.js';
 import { tridagon } from './techniques/tridagon.js';
+import { sueDeCoq } from './techniques/suedecoq.js';
 import { aic, alsAic, groupedAic, xChain } from './techniques/aic.js';
 
 /**
@@ -91,7 +92,9 @@ import { aic, alsAic, groupedAic, xChain } from './techniques/aic.js';
  *     Turbot Fish, so it follows Turbot Fish, and the other Unique Rectangle
  *     types follow Type 1 (the naked-subset Type 3 after the one-link Type 4).
  *     WXYZ-Wing is the four-cell special case of ALS-XZ, so it goes just
- *     before ALS-XZ and claims those steps under the more findable name.
+ *     before ALS-XZ and claims those steps under the more findable name;
+ *     Sue de Coq, a box-line intersection split between two locked sets,
+ *     sits between them.
  *     X-Chain (one digit) follows Simple Coloring; the general AIC comes after
  *     ALS-XZ, where SudokuWiki ranks it, then chains through box-line groups.
  *     Tridagon is one fixed shape, so it goes before the last and hardest
@@ -144,6 +147,7 @@ export const PATTERN_TECHNIQUES: Technique[] = [
   xChain,
   xyChain,
   wxyzWing,
+  sueDeCoq,
   alsXz,
   aic,
   groupedAic,

@@ -65,6 +65,7 @@ export type TechniqueId =
   | 'aic'
   | 'als-chain'
   | 'death-blossom'
+  | 'sue-de-coq'
   | 'als-xz'
   | 'tridagon'
   | 'forcing-chain'
