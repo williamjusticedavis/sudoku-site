@@ -1039,6 +1039,69 @@ function uniqueRectangleTemplate(step: Step): Beat[] {
   ];
 }
 
+/** X-Chain / AIC: read the chain aloud as a run of "so"s from one end, then
+ * say what "one end or the other is true" removes. The chain's nodes are the
+ * step's non-result highlight groups, in order, one candidate each. */
+function chainTemplate(step: Step): Beat[] {
+  const nodes = step.highlights
+    .filter((g) => g.role === 'base' || g.role === 'related')
+    .map((g) => ({ cell: g.cells[0]!, digit: g.digits![0]! }));
+  const first = nodes[0]!;
+  const last = nodes[nodes.length - 1]!;
+  const say = (n: { cell: number; digit: number }, isTrue: boolean) =>
+    `${cellName(n.cell)} ${isTrue ? 'is' : "isn't"} ${n.digit}`;
+  // Link i joins node i and i+1: strong (solid) when i is even.
+  const xLines = nodes
+    .slice(0, -1)
+    .map((n, i) => ({
+      from: n.cell,
+      to: nodes[i + 1]!.cell,
+      style: i % 2 === 0 ? ('solid' as const) : ('dashed' as const),
+    }))
+    .filter((l) => l.from !== l.to);
+  const shown: Role[] = ['base', 'related'];
+  const walk = nodes
+    .slice(1)
+    .map((n, i) => say(n, i % 2 === 0))
+    .join(', so ');
+
+  const place = step.placements[0];
+  const elim = elimCells(step);
+  const gone = [...new Set(step.eliminations.map((e) => e.digit))];
+  let why: string;
+  if (place) {
+    why = `The chain comes back to where it started: supposing ${say(first, false)} forces it to be ${first.digit}. So it is.`;
+  } else if (first.digit === last.digit) {
+    why = `Either way round, ${cellName(first.cell)} or ${cellName(last.cell)} is ${first.digit}. So ${cells(elim)}, which ${elim.length === 1 ? 'sees' : 'see'} both, can't be ${first.digit}.`;
+  } else if (first.cell === last.cell) {
+    why = `Either way round, ${cellName(first.cell)} is ${first.digit} or ${last.digit}, so nothing else fits there.`;
+  } else {
+    const cant = step.eliminations.map((e) => `${cellName(e.cell)} can't be ${e.digit}`);
+    why = `Either way round, ${say(first, true)} or ${say(last, true)}. They see each other, so ${joinWith(cant, 'and')}.`;
+  }
+
+  return [
+    {
+      text: `Follow a chain of candidates from ${cellName(first.cell)} to ${cellName(last.cell)}. A solid line means at least one of its two ends is true; a dashed line means at most one is.`,
+      roles: shown,
+      xLines,
+    },
+    {
+      text: `Suppose ${say(first, false)}. Then ${walk}.`,
+      roles: shown,
+      xLines,
+    },
+    { text: why, roles: [...shown, 'elimination', 'placement'], xLines },
+    {
+      text: place
+        ? `Place ${place.digit} in ${cellName(place.cell)}.`
+        : `Remove ${digits(gone)} from ${cells(elim)}.`,
+      roles: [...shown, 'elimination', 'placement'],
+      xLines,
+    },
+  ];
+}
+
 /** Tridagon: twelve cells on three digits that no arrangement can fill. */
 function tridagonTemplate(step: Step): Beat[] {
   const pattern = groupCells(step, 'base');
@@ -1497,6 +1560,8 @@ const BY_SLUG: Record<string, Template> = {
   'hidden-rectangle': extendedRectangleTemplate,
   'wxyz-wing': wxyzWingTemplate,
   tridagon: tridagonTemplate,
+  'x-chain': chainTemplate,
+  aic: chainTemplate,
   // Solver-only ids: no lesson of their own, but the solver page narrates
   // every step it applies, so each still needs a template. `hidden-single` is
   // what Cross-Hatching / Last Possible Number are called by the engine, and

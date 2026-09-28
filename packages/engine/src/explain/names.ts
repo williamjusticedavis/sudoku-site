@@ -54,6 +54,8 @@ const NAMES: Record<string, string> = {
   'hidden-rectangle': 'Hidden Rectangle',
   'wxyz-wing': 'WXYZ-Wing',
   tridagon: 'Tridagon',
+  'x-chain': 'X-Chain',
+  aic: 'Alternating Inference Chain',
   'forcing-chain': 'Forcing Chain',
 };
 
@@ -107,6 +109,8 @@ const TIERS: Record<string, TechniqueTier> = {
   'hidden-rectangle': 'advanced',
   'wxyz-wing': 'master',
   tridagon: 'master',
+  'x-chain': 'master',
+  aic: 'master',
 };
 
 /**
@@ -124,6 +128,8 @@ const SOLVER_ONLY: ReadonlySet<string> = new Set([
   'hidden-rectangle',
   'wxyz-wing',
   'tridagon',
+  'x-chain',
+  'aic',
 ]);
 
 /**

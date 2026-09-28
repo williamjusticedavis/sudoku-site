@@ -61,6 +61,8 @@ export type TechniqueId =
   | 'hidden-rectangle'
   | 'bug+1'
   | 'xy-chain'
+  | 'x-chain'
+  | 'aic'
   | 'als-xz'
   | 'tridagon'
   | 'forcing-chain'
