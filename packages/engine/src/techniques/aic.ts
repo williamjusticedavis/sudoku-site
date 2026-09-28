@@ -15,7 +15,10 @@
  *  - ends are two digits in one cell → the cell is one of them, the rest go;
  *  - ends are different digits in cells that see each other → each end's cell
  *    loses the other end's digit;
- *  - the chain comes back to its own start → that candidate is true.
+ *  - the chain comes back to its own start → that candidate is true;
+ *  - the chain's far end links weakly back to its start (a continuous loop) →
+ *    every link has exactly one true end, so each link removes what would
+ *    make both its ends false.
  *
  * Two extensions widen the links available. A grouped node is a digit in the
  * two or three cells where a box meets a row or column ("it's in one of
@@ -227,6 +230,30 @@ function conclude(
 }
 
 /**
+ * A continuous loop — a chain whose end links weakly back to its start —
+ * leaves exactly one true candidate on every link, whichever way round it
+ * resolves. So each link (strong or weak) removes what would make both of its
+ * ends false, the same rule `conclude` applies to a chain's two ends.
+ */
+function loopEliminations(grid: Grid, g: Graph, loop: number[]): Elimination[] {
+  const onLoop = new Set(
+    loop.flatMap((i) => {
+      const n = g.nodes[i]!;
+      return n.cells.length === 1 ? [`${n.cells[0]}:${n.digit}`] : [];
+    }),
+  );
+  const out = new Map<string, Elimination>();
+  for (let i = 0; i + 1 < loop.length; i++) {
+    const got = conclude(grid, g.nodes[loop[i]!]!, g.nodes[loop[i + 1]!]!, false);
+    for (const e of got?.eliminations ?? []) {
+      const key = `${e.cell}:${e.digit}`;
+      if (!onLoop.has(key)) out.set(key, e);
+    }
+  }
+  return [...out.values()];
+}
+
+/**
  * Shortest productive chain, or null. Breadth-first from every node, over
  * states (node, true?): a node is reached true across a strong link and false
  * across a weak one, and the start is assumed false.
@@ -255,14 +282,27 @@ function search(grid: Grid, g: Graph): Found | null {
           parent[t] = s;
           next.push(t);
           if (isTrue || n < 3) continue;
+          const path = (): number[] => {
+            const chain: number[] = [];
+            for (let x = t; ; x = parent[x]!) {
+              chain.push(x >> 1);
+              if (x === s0) break;
+            }
+            return chain.reverse();
+          };
+          // Closing back onto the start through a weak link makes a loop, which
+          // says more than the chain alone — so it's checked first.
+          if (m !== start && g.weak[m]!.includes(start)) {
+            const loop = [...path(), start];
+            const eliminations = loopEliminations(grid, g, loop);
+            if (eliminations.length > 0) {
+              found = { chain: loop, placements: [], eliminations };
+              break;
+            }
+          }
           const got = conclude(grid, g.nodes[start]!, g.nodes[m]!, m === start);
           if (!got) continue;
-          const chain: number[] = [];
-          for (let x = t; ; x = parent[x]!) {
-            chain.push(x >> 1);
-            if (x === s0) break;
-          }
-          found = { chain: chain.reverse(), ...got };
+          found = { chain: path(), ...got };
           break;
         }
         if (found) break;
@@ -295,9 +335,13 @@ function toStep(g: Graph, found: Found): Step {
   const notation = chain
     .map((n, i) => (i === 0 ? label(n) : `${i % 2 === 1 ? ' = ' : ' - '}${label(n)}`))
     .join('');
-  const name = viaAls
-    ? 'ALS Chain'
-    : `${grouped ? 'Grouped ' : ''}${oneDigit ? `X-Chain on ${chain[0]!.digit}` : 'AIC'}`;
+  const loop =
+    found.chain.length > 2 && found.chain[0] === found.chain[found.chain.length - 1];
+  const name = `${
+    viaAls
+      ? 'ALS Chain'
+      : `${grouped ? 'Grouped ' : ''}${oneDigit ? `X-Chain on ${chain[0]!.digit}` : 'AIC'}`
+  }${loop ? ' (continuous loop)' : ''}`;
   const result =
     placements.length > 0
       ? `${cellName(placements[0]!.cell)} must be ${placements[0]!.digit}`
@@ -341,4 +385,4 @@ export const aic = chainTechnique({ singleDigit: false, grouped: false, als: 0 }
 /** Runs only once plain chains are exhausted, so a chain through a box-line
  * group is reported only where no ungrouped chain would do. */
 export const groupedAic = chainTechnique({ singleDigit: false, grouped: true, als: 0 });
-export const alsAic = chainTechnique({ singleDigit: false, grouped: true, als: 3 });
+export const alsAic = chainTechnique({ singleDigit: false, grouped: true, als: 4 });

@@ -1080,6 +1080,41 @@ function chainTemplate(step: Step): Beat[] {
   const elim = elimCells(step);
   const gone = [...new Set(step.eliminations.map((e) => e.digit))];
   const cant = step.eliminations.map((e) => `${cellName(e.cell)} can't be ${e.digit}`);
+  const isLoop =
+    nodes.length > 2 &&
+    first.digit === last.digit &&
+    first.cells.join() === last.cells.join() &&
+    !place;
+  if (isLoop) {
+    const closing = nodes[nodes.length - 2]!;
+    return [
+      {
+        text: `Follow a chain of candidates that closes into a loop. A solid line means at least one of its two ends is true; a dashed line means at most one is.${alsNote}`,
+        roles: shown,
+        xLines,
+      },
+      {
+        text: `Suppose ${say(first, false)}. Then ${walk
+          .split(', so ')
+          .slice(0, -1)
+          .join(
+            ', so ',
+          )} — which agrees with where it started, since ${say(closing, true)} already means ${say(first, false)}. Suppose instead ${say(first, true)}: the same links now run the other way. Either way, every link in the loop has exactly one true end.`,
+        roles: shown,
+        xLines,
+      },
+      {
+        text: `So anything that would make both ends of a link false is ruled out: ${joinWith(cant, 'and')}.`,
+        roles: [...shown, 'elimination'],
+        xLines,
+      },
+      {
+        text: `Remove ${digits(gone)} from ${cells(elim)}.`,
+        roles: [...shown, 'elimination'],
+        xLines,
+      },
+    ];
+  }
   let why: string;
   if (place) {
     why = `The chain comes back to where it started: supposing ${say(first, false)} forces it to be ${first.digit}. So it is.`;
