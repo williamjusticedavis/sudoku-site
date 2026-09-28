@@ -404,7 +404,7 @@ When spawning subagents (Agent/Task tool), the routing block is automatically in
 
 ### Phase 1 — complete
 
-Phase 1 is complete and committed. The solving engine in packages/engine solves any valid grid via real, explainable technique logic (28 pattern techniques, including Simple Coloring and ALS-XZ, plus a depth-1 forcing-chain backstop), verified against an independent brute-force oracle across 1137+ puzzles, and personally hand-tested via the CLI by the project owner — including notation input/validation (parseGridWithCandidates, checkForMistakes, reconcileNotation). Do not reopen Phase 1 work unless explicitly asked.
+Phase 1 is complete and committed. The solving engine in packages/engine solves any valid grid via real, explainable technique logic (the 28 curriculum pattern techniques, including Simple Coloring and ALS-XZ, plus a depth-1 forcing-chain backstop — since extended with solver-only techniques, see "Solver-only techniques" above), verified against an independent brute-force oracle across 1137+ puzzles, and personally hand-tested via the CLI by the project owner — including notation input/validation (parseGridWithCandidates, checkForMistakes, reconcileNotation). Do not reopen Phase 1 work unless explicitly asked.
 
 **Technique order — FIXED 2026-09-06 (commit `d0ba7cc`).** `PATTERN_TECHNIQUES`
 in `solver.ts` used to be in build order, so the solver could apply a harder
