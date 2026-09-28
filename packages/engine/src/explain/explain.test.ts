@@ -7,12 +7,15 @@ import { summarizeStep } from './summary.js';
 import { explainStep } from './walkthrough.js';
 
 /** A spread of puzzles chosen to fire well past the singles — the harder ones
- * reach the wings, fish, coloring and the forcing-chain backstop. */
+ * reach the wings, fish, coloring and the forcing-chain backstop. The ones
+ * from `hard17.csv` are there for the solver-only techniques. */
 const PUZZLES = [
   '53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79',
   '000000010400000000020000000000050407008000300001090000300400200050100000000806000',
   '100007090030020008009600500005300900010080002600004000300000010040000007007000300',
   '000000012000035000000600070700000300000400800100000000000120000080000040050000600',
+  // Empty Rectangle.
+  '000000000000001023004056000000007000000200001006000500000800600030000000120900000',
 ];
 
 /** Every (step, grid-it-fired-on) pair across the sample solves. */
@@ -62,9 +65,10 @@ describe('explainStep', () => {
     // relabels' underlying id).
     const seen = new Set(all.map((a) => a.step.technique));
     expect(seen.size).toBeGreaterThan(10);
-    // The registered set is the 28 pattern techniques plus the forcing-chain
-    // backstop; every one of them must narrate without hitting the fallback.
-    expect(TECHNIQUES.length).toBe(29);
+    // The registered set is the 28 curriculum techniques, the solver-only ones,
+    // and the forcing-chain backstop; every one of them must narrate without
+    // hitting the fallback. Bump this when a technique is added.
+    expect(TECHNIQUES.length).toBe(30);
   });
 
   it('narrates a promoted user-notes step', () => {
@@ -170,6 +174,8 @@ describe('techniqueName', () => {
     // Taught under its two beginner-friendly names, not its formal one.
     expect(lessonSlugFor('hidden-single')).toBe('cross-hatching');
     expect(lessonSlugFor('forcing-chain')).toBeNull();
+    // Solver-only: named and tiered, but no lesson to link to.
+    expect(lessonSlugFor('empty-rectangle')).toBeNull();
     expect(lessonSlugFor('user-notes')).toBeNull();
   });
 });
@@ -177,7 +183,7 @@ describe('techniqueName', () => {
 describe('techniqueTier', () => {
   it('places every curriculum technique in the tier its lesson sits in', () => {
     for (const { step } of everyStep()) {
-      if (step.technique === 'forcing-chain') continue; // not curriculum
+      if (step.technique === 'forcing-chain') continue; // not a pattern
       expect(techniqueTier(step.technique), step.technique).not.toBeNull();
     }
     expect(techniqueTier('naked-single')).toBe('beginner');

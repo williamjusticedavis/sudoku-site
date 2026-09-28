@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGrid, type CellIndex, type Digit, type Grid } from '../grid.js';
 import type { Step, TechniqueId } from '../step.js';
-import { skyscraper, twoStringKite } from './chains.js';
+import { emptyRectangle, skyscraper, twoStringKite } from './chains.js';
 import { runFixture } from '../__tests__/oracle.js';
 
 function gridWith(cands: Record<CellIndex, Digit[]>): Grid {
@@ -39,6 +39,59 @@ describe('2-string kite (white-box)', () => {
     const step = twoStringKite(g)!;
     expect(step.technique).toBe('2-string-kite');
     expect(elimKeys(step)).toEqual(['62:1']);
+  });
+});
+
+describe('empty rectangle (white-box)', () => {
+  // Box 1's 1s — r1c2 and r2c1 — lie on the cross of row 1 and column 1. Column
+  // 6 has 1 only at r1c6 and r5c6. r5c1 can't be 1: then r5c6 isn't, so r1c6
+  // is, and between them row 1 and column 1 leave box 1 without a 1. r5c8 is
+  // there only so row 5 isn't itself a strong link.
+  it('eliminates through a column strong link', () => {
+    const g = gridWith({
+      1: [1, 2],
+      9: [1, 2],
+      5: [1, 2],
+      41: [1, 2],
+      36: [1, 3],
+      43: [1, 3],
+    });
+    const step = emptyRectangle(g)!;
+    expect(step.technique).toBe('empty-rectangle');
+    expect(elimKeys(step)).toEqual(['36:1']);
+  });
+
+  it('eliminates through a row strong link (the same grid transposed)', () => {
+    const g = gridWith({
+      9: [1, 2],
+      1: [1, 2],
+      45: [1, 2],
+      49: [1, 2],
+      4: [1, 3],
+      67: [1, 3],
+    });
+    const step = emptyRectangle(g)!;
+    expect(elimKeys(step)).toEqual(['4:1']);
+  });
+
+  it('ignores a box whose candidates all sit in one line (a pointing pair)', () => {
+    // Box 1's 1s are r1c1 and r1c2 only — no column arm.
+    const g = gridWith({
+      0: [1, 2],
+      1: [1, 2],
+      5: [1, 2],
+      41: [1, 2],
+      36: [1, 3],
+      43: [1, 3],
+    });
+    expect(emptyRectangle(g)).toBeNull();
+  });
+
+  it('fires on the hard 17-clue set', () => {
+    const hits = runFixture('hard17.csv', 50).outcomes.filter((o) =>
+      o.techniques.includes('empty-rectangle'),
+    );
+    expect(hits.length).toBeGreaterThan(0);
   });
 });
 

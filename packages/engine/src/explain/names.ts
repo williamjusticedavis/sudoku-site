@@ -5,10 +5,11 @@ import type { TechniqueId } from '../step.js';
  * id (`"als-xz"`, `"bug+1"`, `"2-string-kite"`) — those read as debug output,
  * and they don't match the name of the lesson teaching that same pattern.
  *
- * These are exactly the `tactics.name` values seeded for the Learn curriculum,
- * plus the four ids with no lesson of their own. Keep them in step with the
- * seed: a name that drifts here reads as a different technique to anyone
- * moving between the solver and its lesson.
+ * The curriculum ids use exactly the `tactics.name` values seeded for the Learn
+ * curriculum — keep them in step with the seed: a name that drifts here reads
+ * as a different technique to anyone moving between the solver and its lesson.
+ * Ids with no lesson of their own (including `SOLVER_ONLY`) are sorted out by
+ * `lessonSlugFor`.
  */
 const NAMES: Record<string, string> = {
   given: 'Given',
@@ -44,6 +45,7 @@ const NAMES: Record<string, string> = {
   'bug+1': 'BUG+1',
   'xy-chain': 'XY-Chain',
   'als-xz': 'ALS-XZ',
+  'empty-rectangle': 'Empty Rectangle',
   'forcing-chain': 'Forcing Chain',
 };
 
@@ -86,11 +88,21 @@ const TIERS: Record<string, TechniqueTier> = {
   'xy-chain': 'master',
   'simple-coloring': 'master',
   'als-xz': 'master',
+  // Solver-only (see `SOLVER_ONLY`): the tier the pattern would sit in if it
+  // were taught, so the step list still colours it by difficulty.
+  'empty-rectangle': 'advanced',
 };
 
 /**
- * The tier a technique is taught in, or null for the ids that aren't
- * curriculum: the forcing-chain backstop (a guided guess-and-check, not a
+ * Techniques the solver applies that have no Learn lesson and never will. They
+ * exist so the solver finds the pattern a human expert would instead of
+ * falling back to the forcing-chain guess; the curriculum stays the locked 28.
+ */
+const SOLVER_ONLY: ReadonlySet<string> = new Set(['empty-rectangle']);
+
+/**
+ * The tier a technique is taught in (or, for a solver-only technique, would
+ * be), or null for the ids that aren't patterns: the forcing-chain backstop (a guided guess-and-check, not a
  * pattern anyone learns to spot), and the non-technique ids.
  */
 export function techniqueTier(id: TechniqueId): TechniqueTier | null {
@@ -112,12 +124,13 @@ export function techniqueName(id: TechniqueId): string {
  * The Learn lesson slug that teaches a technique, or null when none does.
  * Pointing and Claiming are two engine techniques but one merged lesson;
  * `hidden-single` is deliberately taught as Cross-Hatching / Last Possible
- * Number instead, and the forcing chain / user-notes ids aren't curriculum.
+ * Number instead, and the forcing chain / user-notes / solver-only ids aren't
+ * curriculum.
  */
 export function lessonSlugFor(id: TechniqueId): string | null {
   if (id === 'claiming') return 'pointing';
   if (id === 'hidden-single') return 'cross-hatching';
   if (id === 'given' || id === 'user' || id === 'user-notes') return null;
-  if (id === 'forcing-chain') return null;
+  if (id === 'forcing-chain' || SOLVER_ONLY.has(id)) return null;
   return NAMES[id] ? id : null;
 }

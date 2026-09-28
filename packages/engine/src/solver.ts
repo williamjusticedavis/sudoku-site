@@ -36,7 +36,12 @@ import {
   swordfish,
   xWing,
 } from './techniques/fish.js';
-import { skyscraper, turbotFish, twoStringKite } from './techniques/chains.js';
+import {
+  emptyRectangle,
+  skyscraper,
+  turbotFish,
+  twoStringKite,
+} from './techniques/chains.js';
 import { simpleColoring } from './techniques/coloring.js';
 import { wWing, xyWing, xyzWing } from './techniques/wings.js';
 import { bug1, uniqueRectangle } from './techniques/uniqueness.js';
@@ -68,6 +73,11 @@ import { makeForcingChain } from './techniques/forcing.js';
  *     kept together. They were built as a group because they share structure,
  *     but they are three different tiers to a solver's eye: an X-Wing is
  *     Intermediate and a Jellyfish is genuinely hard to see.
+ *   - Some techniques here have no lesson at all (`SOLVER_ONLY` in
+ *     explain/names.ts). They're here so a hard grid gets the pattern an
+ *     expert would spot rather than the forcing-chain guess, and they sit in
+ *     the tier they'd be taught in if they were — Empty Rectangle is a grouped
+ *     Turbot Fish, so it follows Turbot Fish.
  *
  * Reordering this list is not a local change: `packages/db/src/seed.ts` builds
  * each lesson's lead-up from `TECHNIQUES` minus the target, so the order
@@ -94,6 +104,7 @@ export const PATTERN_TECHNIQUES: Technique[] = [
   bug1,
   twoStringKite,
   turbotFish,
+  emptyRectangle,
   swordfish,
   xyWing,
   wWing,

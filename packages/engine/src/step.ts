@@ -43,6 +43,7 @@ export type TechniqueId =
   | 'skyscraper'
   | '2-string-kite'
   | 'turbot-fish'
+  | 'empty-rectangle'
   | 'simple-coloring'
   | 'finned-x-wing'
   | 'finned-swordfish'

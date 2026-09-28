@@ -1039,6 +1039,50 @@ function uniqueRectangleTemplate(step: Step): Beat[] {
   ];
 }
 
+/** Empty Rectangle: a box whose candidates form a row-and-column cross, plus
+ * one strong link that lines up with an arm of the cross. */
+function emptyRectangleTemplate(step: Step): Beat[] {
+  const box = groupCells(step, 'base');
+  const [a, b] = groupCells(step, 'related');
+  const d = elimDigit(step);
+  const t = elimCells(step)[0]!;
+  // `q` is the link end that shares a line with the target; `p` sits on the
+  // arm of the cross.
+  const colLink = colOf(a!) === colOf(b!);
+  const q = colLink
+    ? rowOf(a!) === rowOf(t)
+      ? a!
+      : b!
+    : colOf(a!) === colOf(t)
+      ? a!
+      : b!;
+  const p = q === a ? b! : a!;
+  const crossRow = colLink ? rowOf(p) : rowOf(t);
+  const crossCol = colLink ? colOf(t) : colOf(p);
+  const linkLine = colLink ? `column ${colOf(p) + 1}` : `row ${rowOf(p) + 1}`;
+  const pArm = colLink ? `row ${crossRow + 1}` : `column ${crossCol + 1}`;
+  const tArm = colLink ? `column ${crossCol + 1}` : `row ${crossRow + 1}`;
+  const shared = colLink ? 'row' : 'column';
+  return [
+    {
+      text: `Every ${d} in box ${boxOf(box[0]!) + 1} sits in row ${crossRow + 1} or column ${crossCol + 1} — the rest of the box is empty of ${d}. So wherever the box's ${d} goes, it's on one of those two lines.`,
+      roles: ['base'],
+    },
+    {
+      text: `In ${linkLine}, ${d} has only two spots: ${cellName(p)} and ${cellName(q)}. One of them is ${d}.`,
+      roles: ['base', 'related'],
+    },
+    {
+      text: `Suppose ${cellName(t)} were ${d}. Then ${cellName(q)}, in the same ${shared}, isn't — so ${cellName(p)} is. ${cellName(p)} clears ${pArm} of the box and ${cellName(t)} clears ${tArm}, leaving the box nowhere for ${aDigit(d)}.`,
+      roles: ['base', 'related', 'elimination'],
+    },
+    {
+      text: `Remove ${d} from ${cellName(t)}.`,
+      roles: ['base', 'related', 'elimination'],
+    },
+  ];
+}
+
 /** Simple Coloring: two-colour a conjugate-pair chain, then Rule 4. */
 function coloringTemplate(step: Step): Beat[] {
   const colourA = groupCells(step, 'base');
@@ -1236,6 +1280,7 @@ const BY_SLUG: Record<string, Template> = {
   'unique-rectangle': uniqueRectangleTemplate,
   'simple-coloring': coloringTemplate,
   'als-xz': alsXzTemplate,
+  'empty-rectangle': emptyRectangleTemplate,
   // Solver-only ids: no lesson of their own, but the solver page narrates
   // every step it applies, so each still needs a template. `hidden-single` is
   // what Cross-Hatching / Last Possible Number are called by the engine, and

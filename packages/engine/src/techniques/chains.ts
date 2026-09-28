@@ -129,3 +129,82 @@ function findChain(grid: Grid, accept: ChainKind): Step | null {
 export const skyscraper: Technique = (g) => findChain(g, 'skyscraper');
 export const twoStringKite: Technique = (g) => findChain(g, '2-string-kite');
 export const turbotFish: Technique = (g) => findChain(g, 'turbot-fish');
+
+/**
+ * Empty Rectangle — a Turbot Fish whose box end is a whole row-and-column
+ * cross rather than a single cell.
+ *
+ * In some box, every candidate d lies in row r or column c of that box (the
+ * rest of the box — the "empty rectangle" — has none), with at least one on
+ * each arm so it isn't just a pointing pair. Then "d in this box" means "d in
+ * row r or d in column c". Take a strong link on d in a column c2 outside the
+ * box, with one end p in row r and the other end q in row r2 outside the box's
+ * rows. The cell t = (r2, c) can't be d: if it were, q (same row) isn't, so p
+ * is — and p clears row r of the box while t clears column c, leaving the box
+ * no d at all. The same holds with rows and columns swapped.
+ */
+export const emptyRectangle: Technique = (grid: Grid): Step | null => {
+  const hasD = (c: CellIndex, d: Digit) =>
+    grid.placed[c] === 0 && hasCand(grid.candidates[c]!, d);
+
+  for (let d = 1 as Digit; d <= 9; d++) {
+    const links = strongLinks(grid, d).filter((l) => l.kind !== 'box');
+    for (let b = 0; b < 9; b++) {
+      const r0 = Math.floor(b / 3) * 3;
+      const c0 = (b % 3) * 3;
+      const inBox: CellIndex[] = [];
+      for (let r = r0; r < r0 + 3; r++)
+        for (let c = c0; c < c0 + 3; c++) if (hasD(r * 9 + c, d)) inBox.push(r * 9 + c);
+      if (inBox.length < 2) continue;
+
+      for (let r = r0; r < r0 + 3; r++) {
+        for (let c = c0; c < c0 + 3; c++) {
+          if (!inBox.every((x) => rowOf(x) === r || colOf(x) === c)) continue;
+          // One candidate on each arm, off the crossing cell — otherwise every d
+          // sits in one line and it's a pointing pair, not a rectangle.
+          if (!inBox.some((x) => rowOf(x) === r && colOf(x) !== c)) continue;
+          if (!inBox.some((x) => colOf(x) === c && rowOf(x) !== r)) continue;
+
+          for (const link of links) {
+            for (const [p, q] of [
+              [link.a, link.b],
+              [link.b, link.a],
+            ] as const) {
+              let target: CellIndex;
+              if (link.kind === 'col') {
+                // p on the cross's row, q's row outside the box: t = (row q, col c).
+                if (rowOf(p) !== r || boxOf(p) === b) continue;
+                if (Math.floor(rowOf(q) / 3) === Math.floor(r0 / 3)) continue;
+                target = rowOf(q) * 9 + c;
+              } else {
+                // p on the cross's column, q's column outside the box: t = (row r, col q).
+                if (colOf(p) !== c || boxOf(p) === b) continue;
+                if (Math.floor(colOf(q) / 3) === Math.floor(c0 / 3)) continue;
+                target = r * 9 + colOf(q);
+              }
+              if (!hasD(target, d) || target === p || target === q) continue;
+
+              const line =
+                link.kind === 'col' ? `column ${colOf(p) + 1}` : `row ${rowOf(p) + 1}`;
+              return makeStep({
+                technique: 'empty-rectangle',
+                eliminations: [{ cell: target, digit: d }],
+                highlights: [
+                  { role: 'base', cells: inBox, digits: [d] },
+                  { role: 'related', cells: [p, q], digits: [d] },
+                  { role: 'elimination', cells: [target], digits: [d] },
+                ],
+                description: `Empty Rectangle on ${d} in box ${b + 1}: every ${d} in the box is in row ${
+                  r + 1
+                } or column ${c + 1}; strong link ${cellName(p)}=${cellName(
+                  q,
+                )} in ${line} → eliminate ${d} from ${cellName(target)}.`,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+};
