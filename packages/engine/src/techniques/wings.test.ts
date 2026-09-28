@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { emptyGrid, type CellIndex, type Digit, type Grid } from '../grid.js';
 import type { Step, TechniqueId } from '../step.js';
-import { wWing, xyWing, xyzWing } from './wings.js';
+import { wWing, wxyzWing, xyWing, xyzWing } from './wings.js';
 import { runFixture } from '../__tests__/oracle.js';
 
 function gridWith(cands: Record<CellIndex, Digit[]>): Grid {
@@ -61,7 +61,28 @@ describe('wWing (white-box)', () => {
   });
 });
 
+describe('wxyzWing (white-box)', () => {
+  // Hinge r1c1 {1,2,3}; wings r1c2 {1,4}, r1c8 {2,4}, r2c3 {3,4}. 1, 2 and 3 each
+  // sit in cells that see each other; 4 doesn't (r1c8 and r2c3 are apart), so 4
+  // is the one unrestricted digit. r1c3 sees every 4-cell → loses its 4.
+  it('eliminates the one unrestricted digit from cells seeing all its holders', () => {
+    const g = gridWith({ 0: [1, 2, 3], 1: [1, 4], 7: [2, 4], 11: [3, 4], 2: [4, 5] });
+    const step = wxyzWing(g)!;
+    expect(step.technique).toBe('wxyz-wing');
+    expect(elimKeys(step)).toEqual(['2:4']);
+  });
+
+  it('does nothing when two digits are unrestricted', () => {
+    // As above but r1c8 is {3,4}: now 3 also sits in r1c8 and r2c3, apart.
+    const g = gridWith({ 0: [1, 2, 3], 1: [1, 4], 7: [3, 4], 11: [3, 4], 2: [4, 5] });
+    expect(wxyzWing(g)).toBeNull();
+  });
+});
+
 describe('wings fire on their named fixtures', () => {
+  it('WXYZ-Wing fires on wxyzwing.csv', () => {
+    expect(firesCount('wxyzwing.csv', 'wxyz-wing')).toBeGreaterThan(0);
+  });
   it('xy-wing fires across ywing.csv', () => {
     expect(firesCount('ywing.csv', 'xy-wing')).toBeGreaterThan(0);
   });

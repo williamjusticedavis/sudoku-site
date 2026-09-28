@@ -16,6 +16,8 @@ const PUZZLES = [
   '000000012000035000000600070700000300000400800100000000000120000080000040050000600',
   // Empty Rectangle.
   '000000000000001023004056000000007000000200001006000500000800600030000000120900000',
+  // WXYZ-Wing (wxyzwing.csv).
+  '000004700500370060230000004700030840000401000084060003300000059070093002006200000',
   // Unique Rectangle Types 2, 3, 4 and 6, and Hidden Rectangle.
   '000000001000000020003004000000005300010000600270000000000080000000120030004700900',
   '000000000000001002034000050000000600000050340200000000000002107040800000056000000',
@@ -74,7 +76,7 @@ describe('explainStep', () => {
     // The registered set is the 28 curriculum techniques, the solver-only ones,
     // and the forcing-chain backstop; every one of them must narrate without
     // hitting the fallback. Bump this when a technique is added.
-    expect(TECHNIQUES.length).toBe(36);
+    expect(TECHNIQUES.length).toBe(37);
   });
 
   it('narrates a promoted user-notes step', () => {

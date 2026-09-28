@@ -50,6 +50,7 @@ export type TechniqueId =
   | 'finned-jellyfish'
   | 'xy-wing'
   | 'xyz-wing'
+  | 'wxyz-wing'
   | 'w-wing'
   | 'unique-rectangle'
   | 'unique-rectangle-2'

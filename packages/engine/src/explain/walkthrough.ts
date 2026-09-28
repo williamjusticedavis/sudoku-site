@@ -1039,6 +1039,41 @@ function uniqueRectangleTemplate(step: Step): Beat[] {
   ];
 }
 
+/** WXYZ-Wing: four cells, four digits, only one of them free to repeat. */
+function wxyzWingTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
+  const hinge = groupCells(step, 'base')[0]!;
+  const wings = groupCells(step, 'related');
+  const set = groupDigits(step, 'related');
+  const z = elimDigit(step);
+  const others = set.filter((d) => d !== z);
+  const zCells = [hinge, ...wings].filter((c) =>
+    hasCand(grid.candidates[c]!, z as Digit),
+  );
+  const elim = elimCells(step);
+  return [
+    {
+      text: `${cellName(hinge)} sees ${cells(wings)}. Between them, those four cells hold only ${digits(set)}.`,
+      roles: ['base', 'related'],
+    },
+    {
+      text: `Wherever ${digitsOr(others)} appears among them, the cells holding it all see one another — so each of those digits can be used at most once in the four cells.`,
+      roles: ['base', 'related'],
+    },
+    {
+      text: `Three digits used once each can't fill four cells, so ${z} has to be in one of them: ${cells(zCells)}.`,
+      roles: ['base', 'related'],
+    },
+    {
+      text: `${cells(elim)} ${elim.length === 1 ? 'sees' : 'see'} every one of those, so ${elim.length === 1 ? "it can't" : "they can't"} be ${z}.`,
+      roles: ['base', 'related', 'elimination'],
+    },
+    {
+      text: `Remove ${z} from ${cells(elim)}.`,
+      roles: ['base', 'related', 'elimination'],
+    },
+  ];
+}
+
 /** Unique Rectangle Types 2–6 and Hidden Rectangle: the same deadly rectangle
  * as Type 1, kept from settling on its two digits by a different kind of
  * evidence. The opening two beats are shared; the middle is per type. */
@@ -1409,6 +1444,7 @@ const BY_SLUG: Record<string, Template> = {
   'unique-rectangle-5': extendedRectangleTemplate,
   'unique-rectangle-6': extendedRectangleTemplate,
   'hidden-rectangle': extendedRectangleTemplate,
+  'wxyz-wing': wxyzWingTemplate,
   // Solver-only ids: no lesson of their own, but the solver page narrates
   // every step it applies, so each still needs a template. `hidden-single` is
   // what Cross-Hatching / Last Possible Number are called by the engine, and

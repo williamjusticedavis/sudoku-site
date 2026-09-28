@@ -258,10 +258,8 @@ row, no dedicated practice puzzles.
 **Explicitly excluded from the tactics table** (do not add without checking
 in first):
 
-- **WXYZ-Wing** — not implemented in the engine (confirmed 2026-08-27: no
-  `wxyzWing` function, no `wxyz-wing` technique id; puzzles tagged for it in
-  third-party fixtures solve via other techniques instead). Can't generate
-  curated step-by-step lesson content without building it first.
+- **WXYZ-Wing** — implemented in the engine since 2026-09-28 (`wxyzWing`,
+  solver-only), but still not a lesson: see "Solver-only techniques" below.
 - **Forcing-Chain** — the solver's depth-1 completeness backstop, not a
   technique a human learns to spot the way the others are; closer to a
   guided guess-and-check than an explainable pattern. Not curriculum
@@ -275,6 +273,18 @@ solver's own technique set — see `TechniqueId` in `step.ts` and
 are NOT registered in `solver.ts`'s `PATTERN_TECHNIQUES`/`TECHNIQUES` and
 never change the main solving page's step labels or priority order — they
 exist only to label the Learn section's curated lesson puzzles.
+
+**Solver-only techniques (2026-09-28).** The opposite case: techniques the
+solver applies that have no lesson and aren't planned to get one. They exist
+so a hard grid gets the pattern an expert would spot instead of the
+forcing-chain backstop, which amounts to "no technique found, so try a digit
+and see if it breaks". They are listed in `SOLVER_ONLY` in
+`packages/engine/src/explain/names.ts`. They get a display name and a tier,
+so the step list colours them by difficulty, but `lessonSlugFor` returns
+null so the solver never links to a lesson that doesn't exist. The curriculum
+stays the locked 28. Progress is measured with `pnpm -C packages/engine backstop`
+over `tests/fixtures/hard17.csv` (see its PROVENANCE entry). Add further
+techniques by what that report says still reaches the backstop.
 
 ## Definitions worth preserving precisely
 

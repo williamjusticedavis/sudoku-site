@@ -43,7 +43,7 @@ import {
   twoStringKite,
 } from './techniques/chains.js';
 import { simpleColoring } from './techniques/coloring.js';
-import { wWing, xyWing, xyzWing } from './techniques/wings.js';
+import { wWing, wxyzWing, xyWing, xyzWing } from './techniques/wings.js';
 import {
   bug1,
   hiddenRectangle,
@@ -88,6 +88,8 @@ import { makeForcingChain } from './techniques/forcing.js';
  *     the tier they'd be taught in if they were — Empty Rectangle is a grouped
  *     Turbot Fish, so it follows Turbot Fish, and the other Unique Rectangle
  *     types follow Type 1 (the naked-subset Type 3 after the one-link Type 4).
+ *     WXYZ-Wing is the four-cell special case of ALS-XZ, so it goes just
+ *     before ALS-XZ and claims those steps under the more findable name.
  *
  * Reordering this list is not a local change: `packages/db/src/seed.ts` builds
  * each lesson's lead-up from `TECHNIQUES` minus the target, so the order
@@ -133,6 +135,7 @@ export const PATTERN_TECHNIQUES: Technique[] = [
   finnedJellyfish,
   simpleColoring,
   xyChain,
+  wxyzWing,
   alsXz,
 ];
 

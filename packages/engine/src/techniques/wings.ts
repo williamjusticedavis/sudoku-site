@@ -9,6 +9,9 @@
  *  - W-Wing  : two bivalue cells with the same {X,Y}, not seeing each other,
  *    joined by a strong link (conjugate pair) on one candidate X. Then Y is
  *    eliminated from any cell seeing both wing cells.
+ *  - WXYZ-Wing: a hinge and three wings it sees, four cells holding exactly
+ *    four digits between them, where every digit but one (Z) sits only in
+ *    cells that all see each other. See `wxyzWing`.
  *
  * All returns are elimination-only; null unless something is removed.
  */
@@ -173,6 +176,88 @@ export const wWing: Technique = (grid: Grid): Step | null => {
               description: `W-Wing: ${cellName(a)}, ${cellName(b)} {${d1},${d2}} linked by a strong link on ${link} (${cellName(
                 s1,
               )}, ${cellName(s2)}) → eliminate ${other} from ${targets.map(cellName).join(', ')}.`,
+            });
+          }
+        }
+      }
+    }
+  }
+  return null;
+};
+
+/**
+ * WXYZ-Wing. Four cells — a hinge and three wings that each see it — whose
+ * candidates together are exactly four digits. A digit is "restricted" when
+ * every pattern cell holding it sees every other one, so it can be placed in
+ * at most one of them. If all digits but Z are restricted, Z must land in one
+ * of its pattern cells: otherwise the four cells would share three digits
+ * that can each be used only once. So Z leaves any cell that sees all of the
+ * pattern's Z cells.
+ *
+ * The general form doesn't need a hinge, but one that sees the other three is
+ * the shape a solver actually scans for, and it keeps the search small.
+ */
+export const wxyzWing: Technique = (grid: Grid): Step | null => {
+  const small = (c: CellIndex) => {
+    if (grid.placed[c] !== 0) return false;
+    const n = candCount(grid.candidates[c]!);
+    return n >= 2 && n <= 4;
+  };
+
+  for (let hinge = 0; hinge < 81; hinge++) {
+    if (!small(hinge)) continue;
+    const hingeMask = maskOf(grid, hinge);
+    const peers = PEERS[hinge]!.filter(small);
+
+    // Every 4-digit set containing the hinge's candidates.
+    for (let set = 0; set < 0x200; set++) {
+      if (candCount(set) !== 4 || (set & hingeMask) !== hingeMask) continue;
+      const wings = peers.filter((c) => (maskOf(grid, c) & set) === maskOf(grid, c));
+      for (let i = 0; i < wings.length; i++) {
+        for (let j = i + 1; j < wings.length; j++) {
+          for (let k = j + 1; k < wings.length; k++) {
+            const cells = [hinge, wings[i]!, wings[j]!, wings[k]!];
+            if (cells.reduce((m, c) => m | maskOf(grid, c), 0) !== set) continue;
+
+            let z: Digit | null = null;
+            let unrestricted = 0;
+            for (const d of candList(set)) {
+              const holders = cells.filter((c) => hasCand(maskOf(grid, c), d));
+              const restricted = holders.every((a, x) =>
+                holders.every((b, y) => x === y || sees(a, b)),
+              );
+              if (!restricted) {
+                unrestricted++;
+                z = d;
+              }
+            }
+            if (unrestricted !== 1) continue;
+
+            const zCells = cells.filter((c) => hasCand(maskOf(grid, c), z!));
+            const targets = commonPeers(zCells).filter(
+              (c) =>
+                !cells.includes(c) &&
+                grid.placed[c] === 0 &&
+                hasCand(grid.candidates[c]!, z!),
+            );
+            if (targets.length === 0) continue;
+
+            const wingCells = cells.slice(1);
+            return makeStep({
+              technique: 'wxyz-wing',
+              eliminations: targets.map((cell) => ({ cell, digit: z! })),
+              highlights: [
+                { role: 'base', cells: [hinge], digits: candList(hingeMask) },
+                { role: 'related', cells: wingCells, digits: candList(set) },
+                { role: 'elimination', cells: targets, digits: [z!] },
+              ],
+              description: `WXYZ-Wing: hinge ${cellName(hinge)} with wings ${wingCells
+                .map(cellName)
+                .join(', ')} hold only ${candList(set).join(
+                ',',
+              )}, and only ${z} is unrestricted → eliminate ${z} from ${targets
+                .map(cellName)
+                .join(', ')}.`,
             });
           }
         }
