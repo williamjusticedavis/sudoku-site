@@ -53,6 +53,7 @@ const NAMES: Record<string, string> = {
   'unique-rectangle-6': 'Unique Rectangle Type 6',
   'hidden-rectangle': 'Hidden Rectangle',
   'wxyz-wing': 'WXYZ-Wing',
+  tridagon: 'Tridagon',
   'forcing-chain': 'Forcing Chain',
 };
 
@@ -105,6 +106,7 @@ const TIERS: Record<string, TechniqueTier> = {
   'unique-rectangle-6': 'advanced',
   'hidden-rectangle': 'advanced',
   'wxyz-wing': 'master',
+  tridagon: 'master',
 };
 
 /**
@@ -121,6 +123,7 @@ const SOLVER_ONLY: ReadonlySet<string> = new Set([
   'unique-rectangle-6',
   'hidden-rectangle',
   'wxyz-wing',
+  'tridagon',
 ]);
 
 /**

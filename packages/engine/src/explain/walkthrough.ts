@@ -1039,6 +1039,57 @@ function uniqueRectangleTemplate(step: Step): Beat[] {
   ];
 }
 
+/** Tridagon: twelve cells on three digits that no arrangement can fill. */
+function tridagonTemplate(step: Step): Beat[] {
+  const pattern = groupCells(step, 'base');
+  const t = groupDigits(step, 'base');
+  const boxes = [...new Set(pattern.map(boxOf))].map((b) => b + 1);
+  const place = step.placements[0];
+  const guardians = place ? [place.cell] : groupCells(step, 'related');
+  const extras = place ? [place.digit] : groupDigits(step, 'related');
+  const shown: Role[] = place ? ['base', 'placement'] : ['base', 'related'];
+  const opening: Beat[] = [
+    {
+      text: `Look at boxes ${joinWith(boxes.map(String), 'and')}: they sit at the corners of a rectangle of boxes. In each, three cells on three different rows and columns hold ${digitsOr(t)}.`,
+      roles: ['base'],
+    },
+    {
+      text: `If all twelve had to be ${digitsOr(t)}, each box would need all three, and the rows and columns the boxes share rule out every way of placing them. This shape is called a Tridagon, or Thor's Hammer: it can never be filled from just those three digits.`,
+      roles: ['base'],
+    },
+  ];
+  if (place) {
+    return [
+      ...opening,
+      {
+        text: `So one of the twelve must be something else — and the only other candidate among them is ${place.digit} in ${cellName(place.cell)}.`,
+        roles: shown,
+      },
+      { text: `Place ${place.digit} in ${cellName(place.cell)}.`, roles: shown },
+    ];
+  }
+  const elim = elimCells(step);
+  const gone = [...new Set(step.eliminations.map((e) => e.digit))];
+  return [
+    ...opening,
+    {
+      text: `So one of the twelve must be something else: ${digitsOr(extras)} in ${joinWith(guardians.map(cellName), 'or')}.`,
+      roles: shown,
+    },
+    {
+      text:
+        guardians.length === 1
+          ? `That means ${cellName(guardians[0]!)} can't be ${digitsOr(t)}.`
+          : `${cells(elim)} ${elim.length === 1 ? 'sees' : 'see'} all of those, so ${elim.length === 1 ? "it can't" : "they can't"} be ${extras[0]}.`,
+      roles: [...shown, 'elimination'],
+    },
+    {
+      text: `Remove ${digits(gone)} from ${cells(elim)}.`,
+      roles: [...shown, 'elimination'],
+    },
+  ];
+}
+
 /** WXYZ-Wing: four cells, four digits, only one of them free to repeat. */
 function wxyzWingTemplate(step: Step, _slug: string, grid: Grid): Beat[] {
   const hinge = groupCells(step, 'base')[0]!;
@@ -1445,6 +1496,7 @@ const BY_SLUG: Record<string, Template> = {
   'unique-rectangle-6': extendedRectangleTemplate,
   'hidden-rectangle': extendedRectangleTemplate,
   'wxyz-wing': wxyzWingTemplate,
+  tridagon: tridagonTemplate,
   // Solver-only ids: no lesson of their own, but the solver page narrates
   // every step it applies, so each still needs a template. `hidden-single` is
   // what Cross-Hatching / Last Possible Number are called by the engine, and

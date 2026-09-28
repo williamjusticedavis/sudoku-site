@@ -57,6 +57,7 @@ import {
 import { xyChain } from './techniques/xychain.js';
 import { alsXz } from './techniques/als.js';
 import { makeForcingChain } from './techniques/forcing.js';
+import { tridagon } from './techniques/tridagon.js';
 
 /**
  * Pattern techniques in difficulty order — the order the solver walks, and so
@@ -90,6 +91,8 @@ import { makeForcingChain } from './techniques/forcing.js';
  *     types follow Type 1 (the naked-subset Type 3 after the one-link Type 4).
  *     WXYZ-Wing is the four-cell special case of ALS-XZ, so it goes just
  *     before ALS-XZ and claims those steps under the more findable name.
+ *     Tridagon comes last: it is rare, it is the most expensive search here,
+ *     and nothing else on the list overlaps with it.
  *
  * Reordering this list is not a local change: `packages/db/src/seed.ts` builds
  * each lesson's lead-up from `TECHNIQUES` minus the target, so the order
@@ -137,6 +140,7 @@ export const PATTERN_TECHNIQUES: Technique[] = [
   xyChain,
   wxyzWing,
   alsXz,
+  tridagon,
 ];
 
 /**

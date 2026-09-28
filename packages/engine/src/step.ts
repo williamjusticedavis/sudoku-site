@@ -62,6 +62,7 @@ export type TechniqueId =
   | 'bug+1'
   | 'xy-chain'
   | 'als-xz'
+  | 'tridagon'
   | 'forcing-chain'
   | (string & {});
 

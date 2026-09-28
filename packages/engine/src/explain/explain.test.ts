@@ -18,6 +18,8 @@ const PUZZLES = [
   '000000000000001023004056000000007000000200001006000500000800600030000000120900000',
   // WXYZ-Wing (wxyzwing.csv).
   '000004700500370060230000004700030840000401000084060003300000059070093002006200000',
+  // Tridagon (tridagon.csv — Pretzaal's "Sign").
+  '605004790080000064070900508904000086700000005058000000006008007000150000000020040',
   // Unique Rectangle Types 2, 3, 4 and 6, and Hidden Rectangle.
   '000000001000000020003004000000005300010000600270000000000080000000120030004700900',
   '000000000000001002034000050000000600000050340200000000000002107040800000056000000',
@@ -76,7 +78,7 @@ describe('explainStep', () => {
     // The registered set is the 28 curriculum techniques, the solver-only ones,
     // and the forcing-chain backstop; every one of them must narrate without
     // hitting the fallback. Bump this when a technique is added.
-    expect(TECHNIQUES.length).toBe(37);
+    expect(TECHNIQUES.length).toBe(38);
   });
 
   it('narrates a promoted user-notes step', () => {
